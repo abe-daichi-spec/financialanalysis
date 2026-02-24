@@ -3,706 +3,291 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>全商 財務諸表分析｜指標RPG（自動判定・ミス管理）</title>
+  <title>財務諸表分析マスター RPG</title>
   <style>
     :root{
       --bg:#060817; --card:rgba(17,26,51,.88); --text:#eef2ff; --muted:#a6b0d6;
       --good:#22c55e; --bad:#ef4444; --warn:#f59e0b; --btn:#263a77; --btn2:#1b2a55;
       --radius:18px;
+      /* 勘定科目RPGの色分け思想を移植 */
+      --asset-bd:#b7d7ff; --liab-bd:#ffc2c2; --equity-bd:#d2c6ff;
+      --exp-bd:#ffd08a; --rev-bd:#b7f0c6; --symbol-bd:#ffffff;
     }
 
-    /* ===== 不正防止っぽい “動くグラデーション背景” ===== */
     body{
       margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text);
       background: linear-gradient(120deg, #0b1020, #1b2a55, #0b1020, #2a1b55);
       background-size: 400% 400%;
       animation: grad 14s ease infinite;
       min-height:100vh;
+      overflow-x: hidden;
     }
-    @keyframes grad{
-      0%{background-position:0% 50%}
-      50%{background-position:100% 50%}
-      100%{background-position:0% 50%}
-    }
-    /* ノイズを重ねる（スクショ転用を“しにくく見せる”） */
-    body::before{
-      content:"";
-      position:fixed; inset:0;
-      pointer-events:none;
-      opacity:.10;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-      mix-blend-mode: overlay;
-    }
+    @keyframes grad{ 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
 
     .wrap{ max-width:1180px; margin:0 auto; padding:18px; }
     .card{
-      background:var(--card);
-      border-radius:var(--radius);
-      padding:16px;
-      margin:12px 0;
-      box-shadow:0 16px 44px rgba(0,0,0,.35);
-      border:1px solid rgba(238,242,255,.10);
-      backdrop-filter: blur(6px);
+      background:var(--card); border-radius:var(--radius); padding:16px; margin:12px 0;
+      box-shadow:0 16px 44px rgba(0,0,0,.35); border:1px solid rgba(238,242,255,.10);
+      backdrop-filter: blur(6px); position: relative;
     }
+
+    /* 正解・不正解の特大演出 */
+    #feedbackOverlay {
+      position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+      font-size: 80px; font-weight: 900; z-index: 10; pointer-events: none; border-radius: var(--radius);
+    }
+    .ani-pop { animation: pop 0.6s ease forwards; }
+    @keyframes pop { 0%{transform:scale(0.5); opacity:0;} 50%{transform:scale(1.2); opacity:1;} 100%{transform:scale(1); opacity:0;} }
+
     .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .muted{ color:var(--muted); }
-    h2{ margin:6px 0 0; font-size:22px; }
-    select, input{
-      background:rgba(15,23,48,.85); color:var(--text);
-      border:1px solid rgba(238,242,255,.15);
-      border-radius:12px; padding:10px 12px;
-      outline:none;
+    .pill{
+      display:inline-flex; gap:8px; align-items:center; padding:8px 12px; border-radius:999px;
+      background:rgba(15,23,48,.75); border:1px solid rgba(238,242,255,.12);
     }
-    button{
-      border:0; border-radius:12px; padding:10px 12px;
-      background:var(--btn); color:var(--text);
-      cursor:pointer; font-weight:800;
-    }
-    button:hover{ filter:brightness(1.08); }
-    .btn2{ background:var(--btn2); }
-    .btnDanger{ background:#7a2430; }
-    .btnOk{ background:#1c6b3c; }
-    .btnGhost{
-      background:transparent;
-      border:1px solid rgba(238,242,255,.18);
-    }
+
+    /* 進化バー */
+    .xpbar{ width:200px; height:12px; border-radius:999px; background:rgba(238,242,255,.12); overflow:hidden; }
+    .xpfill{ height:100%; width:0%; background:linear-gradient(90deg, #22c55e, #3b82f6); transition:width .35s; }
 
     .expr{
-      min-height:54px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-      border:1px dashed rgba(166,176,214,.35);
-      border-radius:14px; padding:10px 12px;
+      min-height:60px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+      border:2px dashed rgba(166,176,214,.3); border-radius:14px; padding:12px; margin:15px 0;
     }
-    .chip{
-      background:rgba(15,23,48,.9);
-      border:1px solid rgba(238,242,255,.14);
-      padding:8px 10px; border-radius:12px;
-      user-select:none;
-    }
-    .op{ background:rgba(26,36,74,.9); }
-    .status{ font-weight:900; }
+    .chip{ background:rgba(15,23,48,.9); border:1px solid rgba(255,255,255,.2); padding:8px 12px; border-radius:12px; }
 
-    .grid{ display:grid; grid-template-columns: 1fr; gap:12px; }
-    @media(min-width:980px){ .grid{ grid-template-columns: 1.45fr 1fr; } }
+    /* ボタン色分け：勘定科目RPGのロジック */
+    .btn-asset { border: 2px solid var(--asset-bd) !important; color: var(--asset-bd); }
+    .btn-liab  { border: 2px solid var(--liab-bd) !important;  color: var(--liab-bd); }
+    .btn-exp   { border: 2px solid var(--exp-bd) !important;   color: var(--exp-bd); }
+    .btn-rev   { border: 2px solid var(--rev-bd) !important;   color: var(--rev-bd); }
+    .btn-sym   { border: 1px solid var(--symbol-bd) !important; color: var(--symbol-bd); opacity: 0.8; }
 
-    .btnWrap{ display:flex; gap:8px; flex-wrap:wrap; }
-    .small{ font-size:12px; }
+    button { 
+      border:0; border-radius:12px; padding:10px 14px; background:var(--btn); color:var(--text);
+      cursor:pointer; font-weight:800; transition: 0.2s;
+    }
+    button:hover { filter:brightness(1.2); transform: translateY(-2px); }
+    
+    #playerNameInput { 
+      background: #000; color: #fff; border: 2px solid var(--good); padding: 8px; border-radius: 8px; font-weight: bold;
+    }
+    #playerNameInput:read-only { border-color: #555; color: var(--muted); background: transparent; }
 
-    .list{
-      display:flex; flex-direction:column; gap:8px;
-      max-height:340px; overflow:auto; padding-right:4px;
-    }
-    .listItem{
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      padding:10px 12px; border-radius:14px;
-      border:1px solid rgba(238,242,255,.12);
-      background:rgba(15,23,48,.85);
-      cursor:pointer;
-    }
-    .badge{
-      padding:4px 8px; border-radius:999px;
-      background:rgba(239,68,68,.18);
-      border:1px solid rgba(239,68,68,.35);
-      color:#ffb4b4; font-weight:900; font-size:12px;
-      white-space:nowrap;
-    }
-
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:8px 12px; border-radius:999px;
-      background:rgba(15,23,48,.75);
-      border:1px solid rgba(238,242,255,.12);
-    }
-
-    /* ===== RPG UI ===== */
-    .xpbar{
-      width:260px; height:12px; border-radius:999px;
-      background:rgba(238,242,255,.12);
-      overflow:hidden;
-      border:1px solid rgba(238,242,255,.12);
-    }
-    .xpfill{
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
-      transition:width .35s ease;
-    }
-
-    /* ===== Name modal ===== */
-    .modal{
-      position:fixed; inset:0; display:none;
-      align-items:center; justify-content:center;
-      background:rgba(0,0,0,.55);
-      z-index:9999;
-    }
-    .modal.on{ display:flex; }
-    .modalCard{
-      width:min(520px, calc(100% - 24px));
-      background:rgba(17,26,51,.96);
-      border:1px solid rgba(238,242,255,.14);
-      border-radius:20px;
-      padding:18px;
-      box-shadow:0 20px 70px rgba(0,0,0,.6);
-    }
-    .modalCard h3{ margin:0 0 8px; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.8); z-index:999; }
+    .modal.on { display:flex; }
+    .modalCard { background:var(--card); border:1px solid var(--good); padding:24px; border-radius:20px; text-align:center; }
   </style>
 </head>
 <body>
-  <!-- 氏名入力モーダル -->
-  <div class="modal" id="nameModal" aria-modal="true" role="dialog">
-    <div class="modalCard">
-      <h3>名前を入力してください</h3>
-      <div class="muted small">※端末内（localStorage）に保存します。学校PCで使う場合は共有端末に注意。</div>
-      <div class="row" style="margin-top:12px">
-        <input id="nameInput" placeholder="例：3年A組 田中" style="flex:1" />
-        <button id="nameSave" class="btnOk">開始</button>
-      </div>
-      <div class="muted small" style="margin-top:10px">
-        この画面は“利用者識別”にもなるので、スクショ転用の抑止効果があります。
-      </div>
-    </div>
+
+<div class="modal" id="startModal">
+  <div class="modalCard">
+    <h3>名前を入力して分析開始</h3>
+    <input id="initialName" placeholder="例：3年A組 田中" style="font-size:18px; padding:10px; margin-bottom:15px; width:80%;">
+    <br>
+    <button onclick="startGame()" style="padding:10px 40px; background:var(--good);">冒険を始める</button>
   </div>
+</div>
 
 <div class="wrap">
-
   <div class="card">
+    <div id="feedbackOverlay"></div>
     <div class="toolbar">
       <div>
-        <div class="muted">出題中の指標</div>
-        <h2 id="qName">-</h2>
+        <div id="charIcon" style="font-size: 40px;">🥚</div>
+        <h2 id="qName">読み込み中...</h2>
         <div class="muted small" id="qMeta">-</div>
       </div>
-
-      <div class="row">
+      <div class="row" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
         <div class="pill">
-          <div class="muted">名前</div>
-          <div id="playerName" style="font-weight:900">-</div>
-          <button id="changeName" class="btnGhost" style="padding:6px 10px">変更</button>
+          <input type="text" id="playerNameInput" readonly>
+          <span id="charTitle" class="small" style="margin-left:8px; color:var(--good);">Lv.1 簿記のたまご</span>
         </div>
-
         <div class="pill">
-          <div class="muted">Lv</div>
-          <div id="lv" style="font-weight:900">1</div>
-          <div class="xpbar" title="経験値">
-            <div class="xpfill" id="xpFill"></div>
-          </div>
-          <div class="muted small" id="xpText">0 / 50</div>
+          <div class="xpbar"><div class="xpfill" id="xpFill"></div></div>
+          <div class="muted small" id="xpText" style="margin-left:8px;">0/50</div>
         </div>
-
-        <div class="pill">
-          <div class="muted">正答率</div>
-          <div><span id="acc">-</span>（<span id="score">0/0</span>）</div>
-        </div>
+        <div class="muted small">正解率: <span id="acc">-</span> (<span id="score">0/0</span>)</div>
       </div>
     </div>
 
-    <div style="margin-top:12px" class="muted">
-      クリックで式を組み立て（式が“完成”した瞬間に<strong>自動採点</strong>）
-    </div>
+    <div id="expr" class="expr"></div>
 
-    <div id="expr" class="expr" aria-live="polite"></div>
-
-    <div class="row" style="margin-top:10px">
-      <button id="undo" class="btn2">ひとつ戻す</button>
-      <button id="clear" class="btnDanger">クリア</button>
-      <button id="showAns" class="btnGhost">答え表示</button>
-
+    <div style="display:flex; gap:10px;">
+      <button onclick="undo()" class="btn2">1つ戻す</button>
+      <button onclick="clearExpr()" style="background:#7a2430;">全部消す</button>
+      <button onclick="showHint()" class="btn2" style="background:transparent; border:1px solid #555;">答えを見る</button>
       <span style="flex:1"></span>
-
-      <div class="row">
-        <div class="muted">出題</div>
-        <select id="pool">
-          <option value="all">全問題（ランダム）</option>
-          <option value="mistakes">ミス問題のみ（ランダム）</option>
-          <option value="sequential">全問題（順番）</option>
-        </select>
-        <button id="next" class="btn2">スキップ</button>
-      </div>
+      <button onclick="nextQuestion()" class="btn2">スキップ</button>
     </div>
-
-    <div style="margin-top:10px">
-      <div id="msg" class="status"></div>
-      <div id="hint" class="muted" style="margin-top:6px"></div>
-    </div>
+    <div id="hintArea" class="muted small" style="margin-top:10px; min-height:1.2em;"></div>
   </div>
 
-  <div class="grid">
-
-    <div class="card">
-      <div class="muted" style="margin-bottom:8px">演算子</div>
-      <div id="ops" class="btnWrap"></div>
-
-      <div class="muted" style="margin:14px 0 8px">項目（全問題共通で固定表示）</div>
-      <div id="items" class="btnWrap"></div>
-
-      <div class="muted small" style="margin-top:10px">
-        ※指標ごとに項目を絞らないので、知識の定着（識別）に強い設計です。
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="toolbar">
-        <div>
-          <div class="muted">ミス問題リスト</div>
-          <div class="muted small">間違えた回数が自動で記録されます</div>
-        </div>
-        <button id="resetMistakes" class="btn2">ミス履歴リセット</button>
-      </div>
-
-      <div style="margin-top:10px" class="list" id="mistakeList"></div>
-
-      <div class="muted small" style="margin-top:10px">
-        「ミス問題のみ」に切り替えると、ここに入っている指標だけを回せます。
-      </div>
-    </div>
-
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px;">演算子</div>
+    <div id="opsWrap" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;"></div>
+    
+    <div class="muted" style="margin-bottom:10px;">財務項目（B/S・P/Lから選択）</div>
+    <div id="itemsWrap" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
   </div>
-
 </div>
 
 <script>
-(() => {
-  // =========================================================
-  // 0)（あなたのExcel: 財務指標一覧.xlsx）から作った問題データ（計算式ありの全指標）
-  // =========================================================
-  // 記号は「×100」を1トークンとして扱う設計
   const QUESTIONS = [
-    {cat:"収益性", name:"売上高総利益率", tokens:["売上総利益","÷","売上高","×100"], unit:"%"},
-    {cat:"収益性", name:"売上高営業利益率", tokens:["営業利益","÷","売上高","×100"], unit:"%"},
-    {cat:"収益性", name:"売上高経常利益率", tokens:["経常利益","÷","売上高","×100"], unit:"%"},
-    {cat:"収益性", name:"売上高当期純利益率", tokens:["当期純利益","÷","売上高","×100"], unit:"%"},
-    {cat:"収益性", name:"総資本利益率（ROA）", tokens:["当期純利益","÷","総資本","×100"], unit:"%"},
     {cat:"収益性", name:"自己資本利益率（ROE）", tokens:["当期純利益","÷","自己資本","×100"], unit:"%"},
     {cat:"安全性", name:"流動比率", tokens:["流動資産","÷","流動負債","×100"], unit:"%"},
-    {cat:"安全性", name:"当座比率", tokens:["当座資産","÷","流動負債","×100"], unit:"%"},
-    {cat:"安全性", name:"負債比率", tokens:["負債","÷","自己資本","×100"], unit:"%"},
     {cat:"安全性", name:"自己資本比率", tokens:["自己資本","÷","総資本","×100"], unit:"%"},
-    {cat:"安全性", name:"固定比率", tokens:["固定資産","÷","自己資本","×100"], unit:"%"},
-    {cat:"安全性", name:"固定長期適合率", tokens:["固定資産","÷","（","固定負債","＋","自己資本","）","×100"], unit:"%"},
-    {cat:"成長性", name:"売上高成長率", tokens:["（","当期売上高","－","前期売上高","）","÷","前期売上高","×100"], unit:"%"},
-    {cat:"効率性", name:"売上原価率", tokens:["売上原価","÷","売上高","×100"], unit:"%"},
-    {cat:"効率性", name:"売上債権回転率", tokens:["売上高","÷","売上債権","（","受取手形","＋","売掛金","）"], unit:"回"},
-    {cat:"効率性", name:"商品回転率", tokens:["売上原価","÷","（","期首商品","＋","期末商品","）"], unit:"回"},
-    {cat:"効率性", name:"総資産回転率", tokens:["売上高","÷","総資産"], unit:"回"},
     {cat:"効率性", name:"総資本回転率", tokens:["売上高","÷","総資本"], unit:"回"},
-    {cat:"効率性", name:"固定資産回転率", tokens:["売上高","÷","固定資産"], unit:"回"},
+    {cat:"安全性", name:"固定長期適合率", tokens:["固定資産","÷","（","固定負債","＋","自己資本","）","×100"], unit:"%"},
   ];
 
-  // =========================================================
-  // 1) 固定ボタン（全問題の項目を全部表示）
-  //    ※QUESTIONSのトークンから自動抽出しているので、増やしても追従します
-  // =========================================================
-  const OPS = ["＋","－","×","÷","（","）","×100"];
-  const itemSet = new Set();
-  for(const q of QUESTIONS){
-    for(const t of q.tokens){
-      if(OPS.includes(t)) continue;
-      if(t === "100") continue;
-      itemSet.add(t);
-    }
-  }
-  const ALL_ITEMS = [...itemSet].sort((a,b)=> a.localeCompare(b, "ja"));
+  const CHARACTERS = [
+    { score: 0,    icon: '🥚', name: '分析のたまご' },
+    { score: 50,   icon: '🐣', name: '新人アナリスト' },
+    { score: 150,  icon: '🐥', name: 'かけだし調査員' },
+    { score: 300,  icon: '🦉', name: '財務の賢者' },
+    { score: 600,  icon: '🐲', name: '伝説のCFO' }
+  ];
 
-  // =========================================================
-  // 2) RPG（経験値・レベル）
-  // =========================================================
-  function xpNeedFor(level){
-    // Lv1->2:50, Lv2->3:75, Lv3->4:100 ...（単純で伸びる）
-    return 50 + (level-1)*25;
-  }
-  const RPG_KEY = "fa_rpg_v1";
-  const NAME_KEY = "fa_name_v1";
-  const MIST_KEY = "fa_mist_v1";
-
-  function loadRpg(){
-    try{
-      const raw = localStorage.getItem(RPG_KEY);
-      if(!raw) return {level:1, xp:0};
-      const obj = JSON.parse(raw);
-      if(!obj || typeof obj.level!=="number" || typeof obj.xp!=="number") return {level:1, xp:0};
-      return obj;
-    }catch{ return {level:1, xp:0}; }
-  }
-  function saveRpg(obj){ localStorage.setItem(RPG_KEY, JSON.stringify(obj)); }
-
-  // =========================================================
-  // 3) 状態
-  // =========================================================
-  const state = {
-    idx: 0,
-    tokens: [],
-    tries: 0,
-    correct: 0,
-    lastAutoJudgedAt: 0,
-    mistakes: new Map(), // name -> count
-    rpg: loadRpg(),
-    name: ""
+  // アイテムの分類定義（色分け用）
+  const ITEM_TYPES = {
+    "当期純利益":"rev", "売上高":"rev", "売上総利益":"rev",
+    "自己資本":"equity", "総資本":"equity",
+    "流動資産":"asset", "固定資産":"asset",
+    "流動負債":"liab", "固定負債":"liab"
   };
 
-  // =========================================================
-  // 4) DOM
-  // =========================================================
-  const qNameEl = document.getElementById("qName");
-  const qMetaEl = document.getElementById("qMeta");
-  const exprEl  = document.getElementById("expr");
-  const msgEl   = document.getElementById("msg");
-  const hintEl  = document.getElementById("hint");
-  const accEl   = document.getElementById("acc");
-  const scoreEl = document.getElementById("score");
+  let state = {
+    idx: 0, tokens: [], tries: 0, correct: 0, xp: 0, level: 1, name: ""
+  };
 
-  const opsWrap   = document.getElementById("ops");
-  const itemsWrap = document.getElementById("items");
-  const mistakeListEl = document.getElementById("mistakeList");
-
-  const undoBtn = document.getElementById("undo");
-  const clearBtn= document.getElementById("clear");
-  const nextBtn = document.getElementById("next");
-  const showAnsBtn = document.getElementById("showAns");
-  const resetMistakesBtn = document.getElementById("resetMistakes");
-  const poolEl  = document.getElementById("pool");
-
-  // Name / RPG
-  const nameModal = document.getElementById("nameModal");
-  const nameInput = document.getElementById("nameInput");
-  const nameSave  = document.getElementById("nameSave");
-  const playerNameEl = document.getElementById("playerName");
-  const changeNameBtn = document.getElementById("changeName");
-
-  const lvEl = document.getElementById("lv");
-  const xpFillEl = document.getElementById("xpFill");
-  const xpTextEl = document.getElementById("xpText");
-
-  // =========================================================
-  // 5) ユーティリティ
-  // =========================================================
-  function setMessage(text, kind=null){
-    msgEl.textContent = text || "";
-    if(kind==="good") msgEl.style.color = "#9dffc4";
-    else if(kind==="bad") msgEl.style.color = "#ffb4b4";
-    else if(kind==="warn") msgEl.style.color = "#ffe3b3";
-    else msgEl.style.color = "#eef2ff";
+  function startGame() {
+    const name = document.getElementById('initialName').value.trim();
+    if(!name) return alert("名前を入れてね！");
+    state.name = name;
+    document.getElementById('playerNameInput').value = name;
+    document.getElementById('startModal').classList.remove('on');
+    localStorage.setItem('analystRPG_name', name);
+    initGame();
   }
-  function arraysEqual(a,b){
-    if(a.length !== b.length) return false;
-    for(let i=0;i<a.length;i++){
-      if(a[i] !== b[i]) return false;
+
+  function initGame() {
+    const savedName = localStorage.getItem('analystRPG_name');
+    if(!savedName) {
+      document.getElementById('startModal').classList.add('on');
+    } else {
+      state.name = savedName;
+      document.getElementById('playerNameInput').value = savedName;
+      renderQuestion();
     }
-    return true;
-  }
-  function pickRandomIndex(n){ return Math.floor(Math.random()*n); }
-
-  // =========================================================
-  // 6) 保存/復元（ミス）
-  // =========================================================
-  function loadMistakes(){
-    try{
-      const raw = localStorage.getItem(MIST_KEY);
-      if(!raw) return new Map();
-      const obj = JSON.parse(raw);
-      const m = new Map();
-      for(const [k,v] of Object.entries(obj)){
-        if(typeof v === "number") m.set(k, v);
-      }
-      return m;
-    }catch{ return new Map(); }
-  }
-  function saveMistakes(){
-    const obj = {};
-    for(const [k,v] of state.mistakes.entries()) obj[k]=v;
-    localStorage.setItem(MIST_KEY, JSON.stringify(obj));
+    buildButtons();
   }
 
-  // =========================================================
-  // 7) RPG表示更新
-  // =========================================================
-  function renderRpg(){
-    const need = xpNeedFor(state.rpg.level);
-    const pct = Math.max(0, Math.min(100, (state.rpg.xp/need)*100));
-    lvEl.textContent = state.rpg.level;
-    xpFillEl.style.width = pct + "%";
-    xpTextEl.textContent = `${state.rpg.xp} / ${need}`;
-  }
-  function addXp(amount){
-    state.rpg.xp += amount;
-    while(state.rpg.xp >= xpNeedFor(state.rpg.level)){
-      state.rpg.xp -= xpNeedFor(state.rpg.level);
-      state.rpg.level += 1;
-      setMessage(`レベルアップ！ Lv.${state.rpg.level}`, "good");
-    }
-    saveRpg(state.rpg);
-    renderRpg();
-  }
+  function buildButtons() {
+    const ops = ["＋","－","×","÷","（","）","×100"];
+    const opsWrap = document.getElementById('opsWrap');
+    ops.forEach(op => {
+      const btn = document.createElement('button');
+      btn.textContent = op;
+      btn.className = "btn-sym";
+      btn.onclick = () => addToken(op);
+      opsWrap.appendChild(btn);
+    });
 
-  // =========================================================
-  // 8) ボタン生成
-  // =========================================================
-  function makeButton(token){
-    const b = document.createElement("button");
-    b.textContent = token;
-    b.dataset.token = token;
-    b.addEventListener("click", () => onToken(token));
-    return b;
-  }
-  OPS.forEach(op => opsWrap.appendChild(makeButton(op)));
-  ALL_ITEMS.forEach(item => itemsWrap.appendChild(makeButton(item)));
-
-  // =========================================================
-  // 9) 表示
-  // =========================================================
-  function renderExpr(){
-    exprEl.innerHTML = "";
-    if(state.tokens.length === 0){
-      exprEl.innerHTML = `<span class="muted">ここに式が表示されます</span>`;
-      return;
-    }
-    state.tokens.forEach(t => {
-      const div = document.createElement("div");
-      div.className = "chip" + (OPS.includes(t) ? " op" : "");
-      div.textContent = t;
-      exprEl.appendChild(div);
+    const itemSet = new Set();
+    QUESTIONS.forEach(q => q.tokens.forEach(t => { if(!ops.includes(t)) itemSet.add(t); }));
+    const itemsWrap = document.getElementById('itemsWrap');
+    [...itemSet].sort().forEach(item => {
+      const btn = document.createElement('button');
+      btn.textContent = item;
+      const type = ITEM_TYPES[item] || "sym";
+      btn.className = `btn-${type}`;
+      btn.onclick = () => addToken(item);
+      itemsWrap.appendChild(btn);
     });
   }
-  function renderScore(){
-    scoreEl.textContent = `${state.correct}/${state.tries}`;
-    accEl.textContent = state.tries ? (Math.round((state.correct/state.tries)*100) + "%") : "-";
-  }
-  function renderMistakeList(){
-    const entries = [...state.mistakes.entries()].sort((a,b)=> b[1]-a[1]);
-    if(entries.length === 0){
-      mistakeListEl.innerHTML = `<div class="muted small">まだミスはありません。</div>`;
-      return;
-    }
-    mistakeListEl.innerHTML = "";
-    for(const [name,count] of entries){
-      const row = document.createElement("div");
-      row.className = "listItem";
-      row.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:2px;">
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <strong>${name}</strong>
-          </div>
-          <div class="muted small">クリックでこの問題に移動</div>
-        </div>
-        <span class="badge">ミス ${count}</span>
-      `;
-      row.addEventListener("click", () => {
-        const idx = QUESTIONS.findIndex(q => q.name === name);
-        if(idx >= 0){
-          state.idx = idx;
-          renderQuestion();
-        }
-      });
-      mistakeListEl.appendChild(row);
-    }
-  }
 
-  function renderQuestion(){
-    const q = QUESTIONS[state.idx];
-    qNameEl.textContent = q.name;
-
-    // “不正防止っぽさ”：氏名を画面内に常時表示（スクショ転用抑止）
-    qMetaEl.innerHTML = `<span class="muted small">分類：${q.cat} ／ 単位：${q.unit} ／ 利用者：<strong>${escapeHtml(state.name)}</strong></span>`;
-
-    state.tokens = [];
-    setMessage("");
-    hintEl.textContent = "";
+  function addToken(t) {
+    state.tokens.push(t);
     renderExpr();
+    checkAnswer();
   }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  function renderExpr() {
+    const wrap = document.getElementById('expr');
+    wrap.innerHTML = state.tokens.map(t => `<div class="chip">${t}</div>`).join('') || '<span class="muted">ボタンを押して式を組み立てよう</span>';
   }
 
-  // =========================================================
-  // 10) 入力 & 自動判定
-  // =========================================================
-  function onToken(token){
-    // 連続（＋－×÷）だけ軽く抑制（学習の邪魔にならない最低限）
-    const last = state.tokens[state.tokens.length-1];
-    const strictOps = ["＋","－","×","÷"];
-    if(strictOps.includes(token) && strictOps.includes(last)){
-      setMessage("演算子が連続しています。項目を挟んでください。", "warn");
-      return;
-    }
-
-    state.tokens.push(token);
-    setMessage("");
-    hintEl.textContent = "";
-    renderExpr();
-    autoJudgeIfReady();
-  }
-
-  function autoJudgeIfReady(){
+  function checkAnswer() {
     const q = QUESTIONS[state.idx];
-
-    // 多重判定防止
-    const now = Date.now();
-    if(now - state.lastAutoJudgedAt < 180) return;
-
-    // 式完成＝トークン数一致で判定
     if(state.tokens.length !== q.tokens.length) return;
 
-    state.lastAutoJudgedAt = now;
-    state.tries += 1;
+    const isCorrect = JSON.stringify(state.tokens) === JSON.stringify(q.tokens);
+    state.tries++;
+    
+    if(isCorrect) {
+      state.correct++;
+      state.xp += 20;
+      showFeedback("⭕ 正解！", "#22c55e");
+      setTimeout(nextQuestion, 1000);
+    } else {
+      showFeedback("❌ 不正解", "#ef4444");
+      state.tokens = [];
+      setTimeout(renderExpr, 800);
+    }
+    updateStats();
+  }
 
-    const ok = arraysEqual(state.tokens, q.tokens);
-    if(ok){
-      state.correct += 1;
-      renderScore();
-      addXp(10); // 正解でXP（ここを変えるだけで難易度調整可）
+  function showFeedback(text, color) {
+    const el = document.getElementById('feedbackOverlay');
+    el.textContent = text;
+    el.style.color = color;
+    el.style.display = 'flex';
+    el.classList.remove('ani-pop');
+    void el.offsetWidth; // reflow
+    el.classList.add('ani-pop');
+    setTimeout(() => { el.style.display = 'none'; }, 800);
+  }
 
-      setMessage("正解！→ 次へ", "good");
-      hintEl.textContent = q.tokens.join(" ");
-
-      // 正解なら自動で次へ
-      setTimeout(() => nextQuestion(), 450);
-    }else{
-      const cur = state.mistakes.get(q.name) || 0;
-      state.mistakes.set(q.name, cur + 1);
-      saveMistakes();
-      renderMistakeList();
-
-      renderScore();
-      setMessage("不正解。ミス問題リストに追加しました。", "bad");
-      hintEl.textContent = "ヒント：分子・分母（/括弧内）の“科目の範囲”に注目。迷ったら「答え表示」もOK。";
-      // 不正解はそのまま（自分でクリアして再挑戦）
+  function updateStats() {
+    document.getElementById('score').textContent = `${state.correct}/${state.tries}`;
+    document.getElementById('acc').textContent = state.tries ? Math.round(state.correct/state.tries*100) + "%" : "-";
+    
+    // XPとキャラ進化
+    let char = CHARACTERS[0];
+    CHARACTERS.forEach(c => { if(state.xp >= c.score) char = c; });
+    document.getElementById('charIcon').textContent = char.icon;
+    document.getElementById('charTitle').textContent = char.name;
+    
+    const nextChar = CHARACTERS[CHARACTERS.indexOf(char)+1];
+    if(nextChar) {
+      const progress = ((state.xp - char.score) / (nextChar.score - char.score)) * 100;
+      document.getElementById('xpFill').style.width = progress + "%";
+      document.getElementById('xpText').textContent = `${state.xp} / ${nextChar.score}`;
     }
   }
 
-  // =========================================================
-  // 11) 問題遷移（既存仕様踏襲）
-  // =========================================================
-  function nextQuestion(){
-    const mode = poolEl.value;
-
-    if(mode === "sequential"){
-      state.idx = (state.idx + 1) % QUESTIONS.length;
-      renderQuestion();
-      return;
-    }
-
-    if(mode === "mistakes"){
-      const names = [...state.mistakes.keys()];
-      if(names.length === 0){
-        setMessage("ミス問題がまだありません。全問題に戻してください。", "warn");
-        return;
-      }
-      // ミス回数が多いほど出やすい（重み付け）
-      const weighted = [];
-      for(const name of names){
-        const count = state.mistakes.get(name) || 1;
-        for(let i=0;i<Math.min(10, count);i++) weighted.push(name);
-      }
-      const pickName = weighted[pickRandomIndex(weighted.length)];
-      const idx = QUESTIONS.findIndex(q => q.name === pickName);
-      if(idx >= 0) state.idx = idx;
-      renderQuestion();
-      return;
-    }
-
-    // all（ランダム）
-    state.idx = pickRandomIndex(QUESTIONS.length);
-    renderQuestion();
-  }
-
-  // =========================================================
-  // 12) 操作ボタン
-  // =========================================================
-  undoBtn.addEventListener("click", () => {
-    state.tokens.pop();
-    setMessage("");
-    hintEl.textContent = "";
-    renderExpr();
-  });
-
-  clearBtn.addEventListener("click", () => {
-    state.tokens = [];
-    setMessage("");
-    hintEl.textContent = "";
-    renderExpr();
-  });
-
-  showAnsBtn.addEventListener("click", () => {
+  function renderQuestion() {
     const q = QUESTIONS[state.idx];
-    setMessage("答え（トークン列）を表示しました。", "warn");
-    hintEl.textContent = q.tokens.join(" ");
-  });
+    document.getElementById('qName').textContent = q.name;
+    document.getElementById('qMeta').textContent = `分類：${q.cat} | 単位：${q.unit} | 担当：${state.name}`;
+    state.tokens = [];
+    document.getElementById('hintArea').textContent = "";
+    renderExpr();
+  }
 
-  nextBtn.addEventListener("click", () => nextQuestion());
-
-  resetMistakesBtn.addEventListener("click", () => {
-    state.mistakes.clear();
-    saveMistakes();
-    renderMistakeList();
-    setMessage("ミス履歴をリセットしました。", "warn");
-  });
-
-  // =========================================================
-  // 13) 氏名
-  // =========================================================
-  function openNameModal(){
-    nameModal.classList.add("on");
-    setTimeout(()=> nameInput.focus(), 50);
-  }
-  function closeNameModal(){
-    nameModal.classList.remove("on");
-  }
-  function loadName(){
-    const n = localStorage.getItem(NAME_KEY);
-    return (n && n.trim()) ? n.trim() : "";
-  }
-  function saveName(n){
-    localStorage.setItem(NAME_KEY, n);
-  }
-  function applyName(n){
-    state.name = n;
-    playerNameEl.textContent = n;
-    // 画面に反映（メタにも出す）
+  function nextQuestion() {
+    state.idx = (state.idx + 1) % QUESTIONS.length;
     renderQuestion();
   }
 
-  nameSave.addEventListener("click", () => {
-    const n = nameInput.value.trim();
-    if(!n){
-      setMessage("名前を入力してください。", "warn");
-      return;
-    }
-    saveName(n);
-    applyName(n);
-    closeNameModal();
-  });
-
-  changeNameBtn.addEventListener("click", () => {
-    nameInput.value = state.name || "";
-    openNameModal();
-  });
-
-  // =========================================================
-  // 14) 起動
-  // =========================================================
-  // ミス履歴ロード
-  state.mistakes = loadMistakes();
-  renderMistakeList();
-
-  // 名前
-  const initialName = loadName();
-  if(!initialName){
-    openNameModal();
-  }else{
-    applyName(initialName);
+  function undo() { state.tokens.pop(); renderExpr(); }
+  function clearExpr() { state.tokens = []; renderExpr(); }
+  function showHint() { 
+    document.getElementById('hintArea').textContent = "正解： " + QUESTIONS[state.idx].tokens.join(" "); 
   }
 
-  // RPG
-  renderRpg();
-  renderScore();
-
-  // 初回問題
-  state.idx = pickRandomIndex(QUESTIONS.length);
-  renderQuestion();
-
-  // ついでに簡易の“コピー抑止” (本気の不正対策は不可だが、雰囲気は出る)
-  document.addEventListener("contextmenu", (e)=> e.preventDefault());
-})();
+  initGame();
 </script>
 </body>
 </html>
