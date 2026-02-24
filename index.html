@@ -124,4 +124,166 @@
     { cat: "安全性", name: "当座比率", formula: ["当座資産", "÷", "流動負債", "×100"] },
     { cat: "安全性", name: "負債比率", formula: ["負債", "÷", "自己資本", "×100"] },
     { cat: "安全性", name: "自己資本比率", formula: ["自己資本", "÷", "総資本", "×100"] },
-    { cat: "安全性", name: "固定比率", formula: ["固定資産", "÷", "自己資本
+    { cat: "安全性", name: "固定比率", formula: ["固定資産", "÷", "自己資本", "×100"] },
+    { cat: "安全性", name: "固定長期適合率", formula: ["固定資産", "÷", "（", "固定負債", "＋", "自己資本", "）", "×100"] },
+    { cat: "成長性", name: "売上高成長率", formula: ["（", "当期売上高", "－", "前期売上高", "）", "÷", "前期売上高", "×100"] },
+    { cat: "効率性", name: "売上原価率", formula: ["売上原価", "÷", "売上高", "×100"] },
+    { cat: "効率性", name: "売上債権回転率", formula: ["売上高", "÷", "（", "受取手形", "＋", "売掛金", "）"] },
+    { cat: "効率性", name: "商品回転率", formula: ["売上高", "÷", "商品"] },
+    { cat: "効率性", name: "総資本回転率", formula: ["売上高", "÷", "総資本"] }
+  ];
+
+  const CHARACTERS = [
+    { score: 0,   icon: '🥚', name: 'Lv.1 分析のたまご' },
+    { score: 20,   icon: '🐣', name: 'Lv.2 分析ピヨピヨ' },
+    { score: 40,  icon: '🐥', name: 'Lv.3 かけだし分析官' },
+    { score: 60,  icon: '🐤', name: 'Lv.4 見習い調査員' },
+    { score: 80,  icon: '🦉', name: 'Lv.5 財務の賢者' },
+    { score: 100,  icon: '📜', name: 'Lv.6 分析のエキスパート' },
+    { score: 140,  icon: '💎', name: 'Lv.7 財務ストラテジスト' },
+    { score: 180,  icon: '🦅', name: 'Lv.8 蒼天の解析者' },
+    { score: 250, icon: '🌟', name: 'Lv.9 聖域の会計士' },
+    { score: 500, icon: '🐲', name: 'Lv.10 伝説の解析龍' },
+    { score: 1000, icon: '👑', name: 'Lv.MAX 財務の支配者' }
+  ];
+
+  let state = { name: "", totalCorrect: 0, currentIdx: 0, inputTokens: [], sessionCorrect: 0, sessionTotal: 0, mistakes: [] };
+
+  function init() {
+    const savedName = localStorage.getItem('ratioRPG_name');
+    if (!savedName) { 
+        document.getElementById('startModal').style.display = 'flex'; 
+    } else {
+        state.name = savedName;
+        state.totalCorrect = parseInt(localStorage.getItem('ratioRPG_score') || 0);
+        state.mistakes = JSON.parse(localStorage.getItem('ratioRPG_mistakes') || "[]");
+        document.getElementById('displayName').textContent = state.name + " 殿";
+        generateButtons(); // 関数名を新しいものに変更
+        nextQuestion(); 
+        updateUI();
+    }
+  }
+
+  function saveAndStart() {
+    const val = document.getElementById('initialNameInput').value.trim();
+    if (!val) return alert("名前を入れてください");
+    localStorage.clear();
+    state.name = val;
+    localStorage.setItem('ratioRPG_name', val);
+    location.reload();
+  }
+
+  function resetEverything() {
+    if (confirm("名前やこれまでの記録は全てリセットされます。よろしいですか？")) { 
+        localStorage.clear(); 
+        location.reload(); 
+    }
+  }
+
+  // ★キャッシュ対策として関数名を buildButtons から変更★
+  function generateButtons() {
+    // この配列に書いた通りの順番で画面に並びます
+    const plItems = ["売上高", "前期売上高", "当期売上高", "売上原価", "売上総利益" ,"営業利益", "経常利益", "当期純利益"];
+    const bsItems = ["流動資産", "当座資産", "固定資産", "受取手形", "売掛金", "商品", "負債", "流動負債", "固定負債", "自己資本", "総資本"];
+    const ops = ["＋", "－", "÷", "（", "）", "×100"];
+    
+    const container = document.getElementById('buttons');
+    container.innerHTML = "";
+
+    // .sort() を完全に排除し、配列の順番でボタンを作成します
+    plItems.forEach(text => createBtn(text, 'btn-pl', container));
+    bsItems.forEach(text => createBtn(text, 'btn-bs', container));
+    ops.forEach(text => createBtn(text, 'btn-op', container));
+  }
+
+  function createBtn(text, cls, container) {
+    const btn = document.createElement('button');
+    btn.className = 'typeBtn ' + cls;
+    btn.textContent = text;
+    btn.onclick = () => { state.inputTokens.push(text); renderFormula(); };
+    container.appendChild(btn);
+  }
+
+  function renderFormula() {
+    const disp = document.getElementById('formulaDisplay');
+    disp.innerHTML = state.inputTokens.map(t => `<span class="token">${t}</span>`).join('');
+    document.getElementById('result').innerHTML = ""; 
+  }
+
+  function checkAnswerFinal() {
+    if (state.inputTokens.length === 0) return;
+    const target = QUESTIONS[state.currentIdx].formula;
+    const isCorrect = JSON.stringify(state.inputTokens) === JSON.stringify(target);
+    const resEl = document.getElementById('result');
+    if (isCorrect) {
+      resEl.innerHTML = '<span style="color:var(--ok);">⭕ 正解！素晴らしい！</span>';
+      state.totalCorrect++; state.sessionCorrect++; state.sessionTotal++;
+      localStorage.setItem('ratioRPG_score', state.totalCorrect);
+      setTimeout(nextQuestion, 1000);
+    } else {
+      resEl.innerHTML = '<span style="color:var(--ng);">❌ 不正解... 正解を確認してください</span>';
+      addMistake(QUESTIONS[state.currentIdx]);
+      state.sessionTotal++;
+      setTimeout(() => { if(resEl.innerText.includes("不正解")) { state.inputTokens = []; renderFormula(); resEl.innerHTML = ""; } }, 2000);
+    }
+    updateUI();
+  }
+
+  function nextQuestion() {
+    state.currentIdx = Math.floor(Math.random() * QUESTIONS.length);
+    document.getElementById('qCat').textContent = "〔" + QUESTIONS[state.currentIdx].cat + "分析〕";
+    document.getElementById('targetName').textContent = QUESTIONS[state.currentIdx].name;
+    document.getElementById('result').innerHTML = "";
+    state.inputTokens = []; renderFormula();
+  }
+
+  function skipQuestion() { if(confirm("スキップしますか？")) nextQuestion(); }
+  function clearFormula() { state.inputTokens = []; renderFormula(); }
+  function undo() { state.inputTokens.pop(); renderFormula(); }
+
+  function addMistake(q) {
+    if(!state.mistakes.some(m => m.name === q.name)) {
+      state.mistakes.push(q);
+      localStorage.setItem('ratioRPG_mistakes', JSON.stringify(state.mistakes));
+    }
+  }
+
+  function openMistake() {
+    const area = document.getElementById('mistakeListArea');
+    area.innerHTML = state.mistakes.map(m => `
+      <div class="mistake-item">
+        <div><b>${m.name}</b><br><small>正解: ${m.formula.join("")}</small></div>
+        <button onclick="removeMistake('${m.name}')" style="font-size:10px;">克服</button>
+      </div>
+    `).join('') || "まだありません";
+    document.getElementById('mistakeModal').style.display = 'flex';
+  }
+
+  function closeMistake() { document.getElementById('mistakeModal').style.display = 'none'; }
+  function removeMistake(name) {
+    state.mistakes = state.mistakes.filter(m => m.name !== name);
+    localStorage.setItem('ratioRPG_mistakes', JSON.stringify(state.mistakes));
+    openMistake(); updateUI();
+  }
+
+  function updateUI() {
+    document.getElementById('totalAccumulated').textContent = state.totalCorrect;
+    document.getElementById('sessionScore').textContent = state.sessionCorrect;
+    document.getElementById('sessionTotal').textContent = state.sessionTotal;
+    document.getElementById('accuracy').textContent = state.sessionTotal ? Math.round(state.sessionCorrect/state.sessionTotal*100) : 0;
+    document.getElementById('mCount').textContent = state.mistakes.length;
+    document.getElementById('mistakeBtn').style.display = state.mistakes.length > 0 ? "inline-block" : "none";
+
+    let chara = CHARACTERS[0];
+    for (let c of CHARACTERS) { if (state.totalCorrect >= c.score) chara = c; }
+    document.getElementById('charIcon').textContent = chara.icon;
+    document.getElementById('charLevelName').textContent = chara.name;
+    const idx = CHARACTERS.indexOf(chara);
+    document.getElementById('charNext').textContent = idx < CHARACTERS.length - 1 ? `あと ${CHARACTERS[idx+1].score - state.totalCorrect} 問で進化` : "★ 称号: MASTER ★";
+  }
+
+  // 起動時に新しい関数を呼ぶ
+  init();
+</script>
+</body>
+</html>
