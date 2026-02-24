@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>財務諸表分析指標 RPG - 全指標収録版</title>
+  <title>財務諸表分析指標 RPG - Final Edition</title>
   <style>
     :root{
       --border:#ddd; --border2:#ccc; --text-muted:#666;
@@ -45,7 +45,9 @@
     .btn-op { background-color: var(--other-bg) !important; border-color: var(--other-bd) !important; }
 
     .actionBtn { padding: 10px 16px; font-weight: 700; border-radius: 10px; border: 1px solid var(--border2); background: #fff; cursor: pointer; }
-    
+    .submitBtn { padding: 12px 24px; font-size: 18px; font-weight: 900; border-radius: 10px; border: 2px solid #333; background: #333; color: #fff; cursor: pointer; flex: 1; }
+    .submitBtn:hover { background: #000; }
+
     #result { text-align: center; font-size: 18px; font-weight: bold; min-height: 1.5em; margin-bottom: 5px; }
 
     .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
@@ -95,6 +97,7 @@
   <div id="result"></div>
 
   <div style="display:flex; gap:8px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap;">
+    <button class="submitBtn" onclick="checkAnswerFinal()">回答する</button>
     <button class="actionBtn" onclick="undo()">1つ消す</button>
     <button class="actionBtn" onclick="clearFormula()" style="color:var(--ng);">全部消す</button>
     <button class="actionBtn" onclick="skipQuestion()" style="color:var(--text-muted);">スキップ</button>
@@ -110,7 +113,6 @@
 </div>
 
 <script>
-  // CSVデータに基づく全17指標
   const QUESTIONS = [
     { cat: "収益性", name: "売上高総利益率", formula: ["売上総利益", "÷", "売上高", "×100"] },
     { cat: "収益性", name: "売上高営業利益率", formula: ["営業利益", "÷", "売上高", "×100"] },
@@ -131,12 +133,19 @@
     { cat: "効率性", name: "総資本回転率", formula: ["売上高", "÷", "総資本"] }
   ];
 
+  // レベル設定：10段階 + MAX
   const CHARACTERS = [
-    { score: 0, icon: '🥚', name: 'Lv.1 分析のたまご' },
-    { score: 10, icon: '🐣', name: 'Lv.2 分析ピヨピヨ' },
-    { score: 30, icon: '🐥', name: 'Lv.3 かけだし分析官' },
-    { score: 60, icon: '🦉', name: 'Lv.4 財務の賢者' },
-    { score: 100, icon: '🐲', name: 'Lv.5 伝説の解析龍' }
+    { score: 0,   icon: '🥚', name: 'Lv.1 分析のたまご' },
+    { score: 5,   icon: '🐣', name: 'Lv.2 分析ピヨピヨ' },
+    { score: 12,  icon: '🐥', name: 'Lv.3 かけだし分析官' },
+    { score: 22,  icon: '🐤', name: 'Lv.4 見習い調査員' },
+    { score: 35,  icon: '🦉', name: 'Lv.5 財務の賢者' },
+    { score: 50,  icon: '📜', name: 'Lv.6 分析のエキスパート' },
+    { score: 70,  icon: '💎', name: 'Lv.7 財務ストラテジスト' },
+    { score: 95,  icon: '🦅', name: 'Lv.8 蒼天の解析者' },
+    { score: 125, icon: '🌟', name: 'Lv.9 聖域の会計士' },
+    { score: 160, icon: '🐲', name: 'Lv.10 伝説の解析龍' },
+    { score: 200, icon: '👑', name: 'Lv.MAX 財務の支配者' }
   ];
 
   let state = { name: "", totalCorrect: 0, currentIdx: 0, inputTokens: [], sessionCorrect: 0, sessionTotal: 0, mistakes: [] };
@@ -182,35 +191,35 @@
     const btn = document.createElement('button');
     btn.className = 'typeBtn ' + cls;
     btn.textContent = text;
-    btn.onclick = () => { state.inputTokens.push(text); renderFormula(); checkAnswer(); };
+    btn.onclick = () => { state.inputTokens.push(text); renderFormula(); };
     container.appendChild(btn);
   }
 
   function renderFormula() {
     const disp = document.getElementById('formulaDisplay');
     disp.innerHTML = state.inputTokens.map(t => `<span class="token">${t}</span>`).join('');
+    document.getElementById('result').innerHTML = ""; // 入力中は結果を消す
   }
 
-  function checkAnswer() {
+  // 回答ボタン押下時の判定ロジック
+  function checkAnswerFinal() {
+    if (state.inputTokens.length === 0) return;
+
     const target = QUESTIONS[state.currentIdx].formula;
-    for (let i = 0; i < state.inputTokens.length; i++) {
-      if (state.inputTokens[i] !== target[i]) { handleResult(false); return; }
-    }
-    if (state.inputTokens.length === target.length) { handleResult(true); }
-  }
+    const isCorrect = JSON.stringify(state.inputTokens) === JSON.stringify(target);
 
-  function handleResult(isOk) {
     const resEl = document.getElementById('result');
-    if (isOk) {
-      resEl.innerHTML = '<span style="color:var(--ok);">⭕ 正解！</span>';
+    if (isCorrect) {
+      resEl.innerHTML = '<span style="color:var(--ok);">⭕ 正解！素晴らしい！</span>';
       state.totalCorrect++; state.sessionCorrect++; state.sessionTotal++;
       localStorage.setItem('ratioRPG_score', state.totalCorrect);
-      setTimeout(nextQuestion, 800);
+      setTimeout(nextQuestion, 1000);
     } else {
-      resEl.innerHTML = '<span style="color:var(--ng);">❌ 不正解...</span>';
+      resEl.innerHTML = '<span style="color:var(--ng);">❌ 不正解... 正解を確認してください</span>';
       addMistake(QUESTIONS[state.currentIdx]);
       state.sessionTotal++;
-      setTimeout(() => { state.inputTokens = []; renderFormula(); resEl.innerHTML = ""; }, 1200);
+      // 不正解時は自動で消さず、ユーザーが確認できるようにする（または数秒後にクリア）
+      setTimeout(() => { if(resEl.innerText.includes("不正解")) { state.inputTokens = []; renderFormula(); resEl.innerHTML = ""; } }, 2000);
     }
     updateUI();
   }
@@ -265,7 +274,7 @@
     document.getElementById('charIcon').textContent = chara.icon;
     document.getElementById('charLevelName').textContent = chara.name;
     const idx = CHARACTERS.indexOf(chara);
-    document.getElementById('charNext').textContent = idx < CHARACTERS.length - 1 ? `あと ${CHARACTERS[idx+1].score - state.totalCorrect} 問で進化` : "マスター到達！";
+    document.getElementById('charNext').textContent = idx < CHARACTERS.length - 1 ? `あと ${CHARACTERS[idx+1].score - state.totalCorrect} 問で進化` : "★ 称号: MASTER ★";
   }
 
   init();
