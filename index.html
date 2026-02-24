@@ -1,10 +1,9 @@
-
 <!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>財務諸表分析指標 RPG</title>
+  <title>財務諸表分析指標 RPG + 苦手攻略</title>
   <style>
     :root{
       --border:#ddd; --border2:#ccc; --text-muted:#666;
@@ -20,7 +19,7 @@
     .muted { color: var(--text-muted); font-size: 14px; }
     .big { font-size: 32px; font-weight: 800; margin: 10px 0 20px; color: #000; text-align: center; }
     
-    /* ステータスバー（勘定科目アプリの動くグラデーションを完全移植） */
+    /* ステータスバー（動くグラデーション） */
     .status-bar { 
       display: flex; align-items: center; gap: 16px; 
       margin-bottom: 20px; padding: 16px; border-radius: 12px;
@@ -53,20 +52,27 @@
     
     #result { text-align: center; font-size: 20px; font-weight: bold; min-height: 1.5em; margin: 10px 0; }
 
-    /* 初期入力モーダル */
-    #startModal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-card { background: #fff; padding: 30px; border-radius: 20px; text-align: center; width: 80%; max-width: 400px; }
+    /* モーダル */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-card { background: #fff; padding: 30px; border-radius: 20px; text-align: center; width: 90%; max-width: 500px; }
+    .mistake-item { text-align: left; padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
 
-<div id="startModal">
+<div id="startModal" class="modal">
   <div class="modal-card">
-    <h2 id="modalTitle">名前を入力してください</h2>
-    <p class="muted">分析の冒険が始まります</p>
+    <h2>名前を入力してください</h2>
     <input type="text" id="initialNameInput" style="width:90%; padding:12px; font-size:18px; border:2px solid #ddd; border-radius:10px; margin-bottom:20px;">
-    <br>
-    <button onclick="saveAndStart()" class="actionBtn" style="background:#333; color:#fff; width:100%; padding:14px;">開始する</button>
+    <button onclick="saveAndStart()" class="actionBtn" style="background:#333; color:#fff; width:100%; padding:14px;">分析開始</button>
+  </div>
+</div>
+
+<div id="mistakeModal" class="modal">
+  <div class="modal-card">
+    <h3>📝 苦手な指標リスト</h3>
+    <div id="mistakeListArea" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;"></div>
+    <button onclick="closeMistake()" class="actionBtn">閉じる</button>
   </div>
 </div>
 
@@ -93,9 +99,11 @@
 
   <div id="result"></div>
 
-  <div style="display:flex; gap:10px; justify-content: center;">
+  <div style="display:flex; gap:10px; justify-content: center; margin-bottom: 10px;">
     <button class="actionBtn" onclick="undo()">1つ消す</button>
-    <button class="actionBtn" onclick="clearFormula()" style="color:var(--ng);">全部リセット</button>
+    <button class="actionBtn" onclick="clearFormula()" style="color:var(--ng);">全部消す</button>
+    <button class="actionBtn" onclick="skipQuestion()" style="color:var(--text-muted);">スキップ</button>
+    <button id="mistakeBtn" class="actionBtn" onclick="openMistake()" style="display:none; background:#fff5f5; border-color:var(--ng); color:var(--ng);">苦手リスト (<span id="mCount">0</span>)</button>
   </div>
 
   <div id="buttons" class="grid"></div>
@@ -107,14 +115,14 @@
 </div>
 
 <script>
-  // 問題データ（代表的なもの）
   const QUESTIONS = [
     { name: "ROE（自己資本利益率）", formula: ["当期純利益", "÷", "自己資本", "×100"] },
     { name: "流動比率", formula: ["流動資産", "÷", "流動負債", "×100"] },
     { name: "自己資本比率", formula: ["自己資本", "÷", "総資本", "×100"] },
-    { name: "売上高利益率", formula: ["当期純利益", "÷", "売上高", "×100"] },
+    { name: "売上高純利益率", formula: ["当期純利益", "÷", "売上高", "×100"] },
     { name: "総資本回転率", formula: ["売上高", "÷", "総資本"] },
-    { name: "固定比率", formula: ["固定資産", "÷", "自己資本", "×100"] }
+    { name: "固定比率", formula: ["固定資産", "÷", "自己資本", "×100"] },
+    { name: "当座比率", formula: ["当座資産", "÷", "流動負債", "×100"] }
   ];
 
   const CHARACTERS = [
@@ -131,7 +139,8 @@
     currentIdx: 0,
     inputTokens: [],
     sessionCorrect: 0,
-    sessionTotal: 0
+    sessionTotal: 0,
+    mistakes: []
   };
 
   function init() {
@@ -141,6 +150,7 @@
     } else {
       state.name = savedName;
       state.totalCorrect = parseInt(localStorage.getItem('ratioRPG_score') || 0);
+      state.mistakes = JSON.parse(localStorage.getItem('ratioRPG_mistakes') || "[]");
       document.getElementById('displayName').textContent = state.name + " 殿";
       buildButtons();
       nextQuestion();
@@ -151,28 +161,25 @@
   function saveAndStart() {
     const val = document.getElementById('initialNameInput').value.trim();
     if (!val) return alert("名前を入れてください");
+    localStorage.clear(); // 新規名前時は全てリセット
     state.name = val;
-    state.totalCorrect = 0; // 新規時は0
+    state.totalCorrect = 0;
+    state.mistakes = [];
     localStorage.setItem('ratioRPG_name', val);
     localStorage.setItem('ratioRPG_score', 0);
     document.getElementById('startModal').style.display = 'none';
-    document.getElementById('displayName').textContent = val + " 殿";
-    buildButtons();
-    nextQuestion();
-    updateUI();
+    location.reload();
   }
 
   function resetEverything() {
-    if (confirm("名前を変更すると、これまでのレベルと正解数も全てリセットされます。よろしいですか？")) {
+    if (confirm("名前を変更すると、これまでのレベルと苦手リストも全てリセットされます。よろしいですか？")) {
       localStorage.clear();
-      state.sessionCorrect = 0;
-      state.sessionTotal = 0;
       location.reload();
     }
   }
 
   function buildButtons() {
-    const items = ["当期純利益", "自己資本", "流動資産", "流動負債", "売上高", "総資本", "固定資産"];
+    const items = ["当期純利益", "自己資本", "流動資産", "流動負債", "売上高", "総資本", "固定資産", "当座資産"];
     const ops = ["＋", "－", "×", "÷", "（", "）", "×100"];
     const container = document.getElementById('buttons');
     container.innerHTML = "";
@@ -220,17 +227,15 @@
   function handleResult(isOk) {
     const resEl = document.getElementById('result');
     if (isOk) {
-      resEl.innerHTML = '<span style="color:var(--ok);">⭕ 正解！お見事！</span>';
+      resEl.innerHTML = '<span style="color:var(--ok);">⭕ 正解！</span>';
       state.totalCorrect++; state.sessionCorrect++; state.sessionTotal++;
       localStorage.setItem('ratioRPG_score', state.totalCorrect);
-      setTimeout(nextQuestion, 1000);
+      setTimeout(nextQuestion, 800);
     } else {
-      resEl.innerHTML = '<span style="color:var(--ng);">❌ 式が違います...</span>';
+      resEl.innerHTML = '<span style="color:var(--ng);">❌ 不正解...</span>';
+      addMistake(QUESTIONS[state.currentIdx]);
       state.sessionTotal++;
-      setTimeout(() => { 
-        clearFormula(); 
-        resEl.innerHTML = ""; 
-      }, 1000);
+      setTimeout(() => { clearFormula(); resEl.innerHTML = ""; }, 1200);
     }
     updateUI();
   }
@@ -242,14 +247,49 @@
     clearFormula();
   }
 
+  function skipQuestion() {
+    if(confirm("この問題をスキップしますか？")) nextQuestion();
+  }
+
   function clearFormula() { state.inputTokens = []; renderFormula(); }
   function undo() { state.inputTokens.pop(); renderFormula(); }
+
+  // 苦手リスト機能
+  function addMistake(q) {
+    if(!state.mistakes.some(m => m.name === q.name)) {
+      state.mistakes.push(q);
+      localStorage.setItem('ratioRPG_mistakes', JSON.stringify(state.mistakes));
+    }
+  }
+
+  function openMistake() {
+    const area = document.getElementById('mistakeListArea');
+    area.innerHTML = state.mistakes.map(m => `
+      <div class="mistake-item">
+        <div><b>${m.name}</b><br><small>正解: ${m.formula.join("")}</small></div>
+        <button onclick="removeMistake('${m.name}')" style="font-size:10px;">克服</button>
+      </div>
+    `).join('') || "まだありません";
+    document.getElementById('mistakeModal').style.display = 'flex';
+  }
+
+  function closeMistake() { document.getElementById('mistakeModal').style.display = 'none'; }
+
+  function removeMistake(name) {
+    state.mistakes = state.mistakes.filter(m => m.name !== name);
+    localStorage.setItem('ratioRPG_mistakes', JSON.stringify(state.mistakes));
+    openMistake();
+    updateUI();
+  }
 
   function updateUI() {
     document.getElementById('totalAccumulated').textContent = state.totalCorrect;
     document.getElementById('sessionScore').textContent = state.sessionCorrect;
     document.getElementById('sessionTotal').textContent = state.sessionTotal;
     document.getElementById('accuracy').textContent = state.sessionTotal ? Math.round(state.sessionCorrect/state.sessionTotal*100) : 0;
+    
+    document.getElementById('mCount').textContent = state.mistakes.length;
+    document.getElementById('mistakeBtn').style.display = state.mistakes.length > 0 ? "inline-block" : "none";
 
     let chara = CHARACTERS[0];
     for (let c of CHARACTERS) { if (state.totalCorrect >= c.score) chara = c; }
