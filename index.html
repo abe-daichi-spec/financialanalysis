@@ -1,85 +1,273 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>簿記 商店経営RPG（MVP）</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#ffffff">
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>財務指標 公式組み立て（全項目固定ボタン）</title>
+  <style>
+    body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#0b1020;color:#eef2ff}
+    .wrap{max-width:1000px;margin:0 auto;padding:18px}
+    .card{background:#111a33;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .muted{color:#a6b0d6}
+    .expr{
+      min-height:52px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+      border:1px dashed rgba(166,176,214,.35);border-radius:14px;padding:10px 12px
+    }
+    .chip{background:#0f1730;border:1px solid rgba(238,242,255,.15);padding:8px 10px;border-radius:12px}
+    .op{background:#1a244a}
+    button{
+      border:0;border-radius:12px;padding:10px 12px;
+      background:#263a77;color:#eef2ff;cursor:pointer;font-weight:800
+    }
+    .btn2{background:#1b2a55}
+    .btnDanger{background:#7a2430}
+    .btnOk{background:#1c6b3c}
+    .status{font-weight:900}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    select{background:#0f1730;color:#eef2ff;border:1px solid rgba(238,242,255,.15);border-radius:12px;padding:10px 12px}
+    .grid{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:900px){ .grid{grid-template-columns: 1fr 1fr;} }
+    .btnWrap{display:flex;gap:8px;flex-wrap:wrap}
+  </style>
 </head>
 <body>
-  <header class="topbar">
-    <h1>簿記 商店経営RPG</h1>
-    <div class="user">
-      <button id="loginBtn">Googleでログイン</button>
-      <span id="userName" class="muted"></span>
+<div class="wrap">
+
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <div class="muted">出題中の指標</div>
+        <h2 id="qName" style="margin:6px 0 0">-</h2>
+      </div>
+
+      <div class="row">
+        <div class="muted">モード</div>
+        <select id="mode">
+          <option value="random">ランダム</option>
+          <option value="sequential">順番</option>
+        </select>
+        <button id="next" class="btn2">次の問題</button>
+      </div>
     </div>
-  </header>
 
-  <main>
-    <section id="homeView" class="view">
-      <div class="card">
-        <h2>本日のクエスト</h2>
-        <p>10問のクイック学習に挑戦して、XPとコインを集めよう。</p>
-        <button id="startQuizBtn" class="primary">クエストを始める</button>
+    <div style="margin-top:12px" class="muted">クリックして式を組み立て（全項目ボタン固定）</div>
+    <div id="expr" class="expr" aria-live="polite"></div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="undo" class="btn2">ひとつ戻す</button>
+      <button id="clear" class="btnDanger">クリア</button>
+      <button id="check" class="btnOk">判定</button>
+      <span style="flex:1"></span>
+      <div class="muted">正答率：<span id="acc">-</span></div>
+    </div>
+
+    <div style="margin-top:10px">
+      <div id="msg" class="status"></div>
+      <div id="hint" class="muted" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="muted" style="margin-bottom:8px">演算子</div>
+      <div id="ops" class="btnWrap"></div>
+    </div>
+
+    <div class="card">
+      <div class="muted" style="margin-bottom:8px">項目（全指標共通で固定表示）</div>
+      <div id="items" class="btnWrap"></div>
+      <div class="muted" style="margin-top:10px">
+        ※「常に全項目」なので、どの指標に何を使うか“識別”が鍛えられます
       </div>
+    </div>
 
-      <div class="grid">
-        <div class="card">
-          <h3>進捗</h3>
-          <p>今日のXP：<span id="todayXp">0</span></p>
-          <p>コンボ：<span id="combo">0</span></p>
-          <p>復習待ち：<span id="reviewCount">0</span></p>
-        </div>
-        <div class="card">
-          <h3>マイ店舗</h3>
-          <p>棚レベル：<span id="shelfLevel">1</span></p>
-          <p>週ポイント：<span id="weeklyPoints">0</span></p>
-        </div>
-      </div>
-    </section>
+  </div>
 
-    <section id="quizView" class="view hidden">
-      <div class="card">
-        <div id="quizMeta">
-          <span id="qProgress">1 / 10</span>
-          <span id="qTag" class="tag"></span>
-        </div>
-        <h2 id="qText">問題文</h2>
-        <div id="choices" class="choices"></div>
-        <div id="feedback" class="feedback"></div>
-        <div class="row">
-          <button id="nextBtn" class="primary" disabled>次へ</button>
-          <button id="quitBtn" class="ghost">やめる</button>
-        </div>
-      </div>
-    </section>
+</div>
 
-    <section id="resultView" class="view hidden">
-      <div class="card center">
-        <h2>クエスト結果</h2>
-        <p>正答数：<span id="correctCount">0</span> / 10</p>
-        <p>獲得XP：<span id="earnedXp">0</span></p>
-        <p>週ポイント合計：<span id="finalWeeklyPoints">0</span></p>
-        <button id="backHomeBtn" class="primary">ホームへ戻る</button>
-      </div>
-    </section>
-  </main>
+<script>
+(() => {
+  // ========= 固定ボタンに出す「全項目」 =========
+  // 先生が増やしたい指標に合わせて、ここに項目を追加していく設計
+  const ALL_ITEMS = [
+    "流動資産", "流動負債",
+    "当座資産", "現金及び預金", "売掛金", "受取手形", "棚卸資産",
+    "固定資産", "総資産",
+    "自己資本", "純資産", "負債",
+    "売上高", "売上原価", "売上総利益",
+    "営業利益", "経常利益", "当期純利益",
+    "減価償却費", "支払利息"
+  ];
 
-  <footer>
-    <small>© 2025 BokiRPG • <a href="README.html">README</a></small>
-  </footer>
+  // ========= 演算子 =========
+  const OPS = ["＋","－","×","÷","（", "）", "×100"];
 
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="firebase.config.js"></script>
-  <script src="scripts.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js');
-      });
+  // ========= 問題データ（例） =========
+  // 正解は「トークン列」で持つ（ボタンを押した順）
+  const QUESTIONS = [
+    {
+      name: "流動比率",
+      answerTokens: ["流動資産","÷","流動負債","×100"],
+      hint: "安全性：短期の支払能力（流動資産 ÷ 流動負債）×100"
+    },
+    {
+      name: "当座比率",
+      answerTokens: ["当座資産","÷","流動負債","×100"],
+      hint: "安全性：より厳格な短期支払能力（当座資産 ÷ 流動負債）×100"
     }
-  </script>
+  ];
+
+  // ========= 状態 =========
+  const state = {
+    qIndex: 0,
+    tokens: [],
+    tries: 0,
+    correct: 0
+  };
+
+  // ========= DOM =========
+  const qNameEl = document.getElementById("qName");
+  const exprEl  = document.getElementById("expr");
+  const msgEl   = document.getElementById("msg");
+  const hintEl  = document.getElementById("hint");
+  const accEl   = document.getElementById("acc");
+  const modeEl  = document.getElementById("mode");
+
+  const opsWrap   = document.getElementById("ops");
+  const itemsWrap = document.getElementById("items");
+
+  const undoBtn = document.getElementById("undo");
+  const clearBtn= document.getElementById("clear");
+  const checkBtn= document.getElementById("check");
+  const nextBtn = document.getElementById("next");
+
+  // ========= 初期：固定ボタンを生成 =========
+  function makeButton(token){
+    const b = document.createElement("button");
+    b.textContent = token;
+    b.dataset.token = token;
+    b.addEventListener("click", () => onToken(token));
+    return b;
+  }
+  OPS.forEach(op => opsWrap.appendChild(makeButton(op)));
+  ALL_ITEMS.forEach(item => itemsWrap.appendChild(makeButton(item)));
+
+  // ========= 表示 =========
+  function renderQuestion(){
+    const q = QUESTIONS[state.qIndex];
+    qNameEl.textContent = q.name;
+    clearExpr(false);
+    setMessage("");
+    hintEl.textContent = "";
+  }
+  function renderExpr(){
+    exprEl.innerHTML = "";
+    if(state.tokens.length === 0){
+      exprEl.innerHTML = `<span class="muted">ここに式が表示されます</span>`;
+      return;
+    }
+    state.tokens.forEach(t => {
+      const div = document.createElement("div");
+      div.className = "chip" + (OPS.includes(t) ? " op" : "");
+      div.textContent = t;
+      exprEl.appendChild(div);
+    });
+  }
+  function setMessage(text, isGood=null){
+    msgEl.textContent = text || "";
+    if(isGood === true) msgEl.style.color = "#9dffc4";
+    else if(isGood === false) msgEl.style.color = "#ffb4b4";
+    else msgEl.style.color = "#eef2ff";
+  }
+  function updateAcc(){
+    if(state.tries === 0) accEl.textContent = "-";
+    else accEl.textContent = Math.round((state.correct/state.tries)*100) + "%";
+  }
+
+  // ========= 入力（最低限の並びチェック：任意） =========
+  // ここは“縛りを弱くして”、迷いながら組ませるほうが学習的に強い場合もある
+  // 今回は「連続演算子」だけ軽く抑制
+  function onToken(token){
+    const last = state.tokens[state.tokens.length-1];
+    const isOp = OPS.includes(token) && !ALL_ITEMS.includes(token);
+    const lastIsOp = OPS.includes(last) && !ALL_ITEMS.includes(last);
+
+    // 連続で（＋－×÷）が続くのは抑止（括弧や×100は例外にしてもいい）
+    const strictOps = ["＋","－","×","÷"];
+    if(strictOps.includes(token) && strictOps.includes(last)){
+      setMessage("演算子が連続しています。項目を挟んでください。", false);
+      return;
+    }
+
+    state.tokens.push(token);
+    setMessage("");
+    hintEl.textContent = "";
+    renderExpr();
+  }
+
+  // ========= 操作 =========
+  function clearExpr(render=true){
+    state.tokens = [];
+    if(render) renderExpr();
+  }
+
+  undoBtn.addEventListener("click", () => {
+    state.tokens.pop();
+    setMessage("");
+    hintEl.textContent = "";
+    renderExpr();
+  });
+
+  clearBtn.addEventListener("click", () => {
+    clearExpr(true);
+    setMessage("");
+    hintEl.textContent = "";
+  });
+
+  checkBtn.addEventListener("click", () => {
+    const q = QUESTIONS[state.qIndex];
+    state.tries += 1;
+
+    const ok = arraysEqual(state.tokens, q.answerTokens);
+    if(ok){
+      state.correct += 1;
+      setMessage("正解！", true);
+      hintEl.textContent = q.hint;
+    }else{
+      setMessage("不正解。どの項目を使うか、もう一度考えよう。", false);
+      hintEl.textContent = "ヒント：分子・分母に来る“資産/負債/利益/売上”の種類に注目。";
+    }
+    updateAcc();
+  });
+
+  nextBtn.addEventListener("click", () => nextQuestion());
+
+  function nextQuestion(){
+    const mode = modeEl.value;
+    if(mode === "random"){
+      state.qIndex = Math.floor(Math.random() * QUESTIONS.length);
+    }else{
+      state.qIndex = (state.qIndex + 1) % QUESTIONS.length;
+    }
+    renderQuestion();
+    renderExpr();
+  }
+
+  function arraysEqual(a,b){
+    if(a.length !== b.length) return false;
+    for(let i=0;i<a.length;i++){
+      if(a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+
+  // 起動
+  renderQuestion();
+  renderExpr();
+  updateAcc();
+})();
+</script>
 </body>
 </html>
