@@ -181,7 +181,9 @@
     const ops = ["＋", "－", "÷", "（", "）", "×100"];
     const container = document.getElementById('buttons');
     container.innerHTML = "";
-    
+
+    plItems.sort().forEach(text => createBtn(text, 'btn-pl', container));
+    bsItems.sort().forEach(text => createBtn(text, 'btn-bs', container));
     ops.forEach(text => createBtn(text, 'btn-op', container));
   }
 
