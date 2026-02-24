@@ -3,28 +3,61 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>全商 財務諸表分析｜公式クリック練習（自動判定・ミス管理）</title>
+  <title>全商 財務諸表分析｜指標RPG（自動判定・ミス管理）</title>
   <style>
     :root{
-      --bg:#0b1020; --card:#111a33; --text:#eef2ff; --muted:#a6b0d6;
-      --good:#22c55e; --bad:#ef4444; --btn:#263a77; --btn2:#1b2a55;
-      --warn:#f59e0b; --radius:16px;
+      --bg:#060817; --card:rgba(17,26,51,.88); --text:#eef2ff; --muted:#a6b0d6;
+      --good:#22c55e; --bad:#ef4444; --warn:#f59e0b; --btn:#263a77; --btn2:#1b2a55;
+      --radius:18px;
     }
-    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
-    .wrap{ max-width:1100px; margin:0 auto; padding:18px; }
-    .card{ background:var(--card); border-radius:var(--radius); padding:16px; margin:12px 0; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+
+    /* ===== 不正防止っぽい “動くグラデーション背景” ===== */
+    body{
+      margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text);
+      background: linear-gradient(120deg, #0b1020, #1b2a55, #0b1020, #2a1b55);
+      background-size: 400% 400%;
+      animation: grad 14s ease infinite;
+      min-height:100vh;
+    }
+    @keyframes grad{
+      0%{background-position:0% 50%}
+      50%{background-position:100% 50%}
+      100%{background-position:0% 50%}
+    }
+    /* ノイズを重ねる（スクショ転用を“しにくく見せる”） */
+    body::before{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+      opacity:.10;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    .wrap{ max-width:1180px; margin:0 auto; padding:18px; }
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:16px;
+      margin:12px 0;
+      box-shadow:0 16px 44px rgba(0,0,0,.35);
+      border:1px solid rgba(238,242,255,.10);
+      backdrop-filter: blur(6px);
+    }
     .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
     .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .muted{ color:var(--muted); }
-    h2{ margin:6px 0 0; }
-    select{
-      background:#0f1730; color:var(--text);
+    h2{ margin:6px 0 0; font-size:22px; }
+    select, input{
+      background:rgba(15,23,48,.85); color:var(--text);
       border:1px solid rgba(238,242,255,.15);
       border-radius:12px; padding:10px 12px;
+      outline:none;
     }
     button{
       border:0; border-radius:12px; padding:10px 12px;
-      background:var(--btn); color:var(--text); cursor:pointer; font-weight:800;
+      background:var(--btn); color:var(--text);
+      cursor:pointer; font-weight:800;
     }
     button:hover{ filter:brightness(1.08); }
     .btn2{ background:var(--btn2); }
@@ -34,21 +67,27 @@
       background:transparent;
       border:1px solid rgba(238,242,255,.18);
     }
+
     .expr{
-      min-height:52px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-      border:1px dashed rgba(166,176,214,.35); border-radius:14px; padding:10px 12px;
+      min-height:54px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+      border:1px dashed rgba(166,176,214,.35);
+      border-radius:14px; padding:10px 12px;
     }
     .chip{
-      background:#0f1730; border:1px solid rgba(238,242,255,.15);
+      background:rgba(15,23,48,.9);
+      border:1px solid rgba(238,242,255,.14);
       padding:8px 10px; border-radius:12px;
       user-select:none;
     }
-    .op{ background:#1a244a; }
+    .op{ background:rgba(26,36,74,.9); }
     .status{ font-weight:900; }
+
     .grid{ display:grid; grid-template-columns: 1fr; gap:12px; }
-    @media(min-width:980px){ .grid{ grid-template-columns: 1.4fr 1fr; } }
+    @media(min-width:980px){ .grid{ grid-template-columns: 1.45fr 1fr; } }
+
     .btnWrap{ display:flex; gap:8px; flex-wrap:wrap; }
     .small{ font-size:12px; }
+
     .list{
       display:flex; flex-direction:column; gap:8px;
       max-height:340px; overflow:auto; padding-right:4px;
@@ -57,25 +96,73 @@
       display:flex; gap:10px; align-items:center; justify-content:space-between;
       padding:10px 12px; border-radius:14px;
       border:1px solid rgba(238,242,255,.12);
-      background:#0f1730;
+      background:rgba(15,23,48,.85);
+      cursor:pointer;
     }
     .badge{
       padding:4px 8px; border-radius:999px;
       background:rgba(239,68,68,.18);
       border:1px solid rgba(239,68,68,.35);
       color:#ffb4b4; font-weight:900; font-size:12px;
+      white-space:nowrap;
     }
-    .cat{
-      padding:4px 8px; border-radius:999px;
-      background:rgba(34,197,94,.12);
-      border:1px solid rgba(34,197,94,.25);
-      color:#b9ffd4; font-weight:900; font-size:12px;
+
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px; border-radius:999px;
+      background:rgba(15,23,48,.75);
+      border:1px solid rgba(238,242,255,.12);
     }
-    .cat.safe{ background:rgba(59,130,246,.12); border-color:rgba(59,130,246,.25); color:#cfe3ff; }
-    .cat.grow{ background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.25); color:#ffe3b3; }
+
+    /* ===== RPG UI ===== */
+    .xpbar{
+      width:260px; height:12px; border-radius:999px;
+      background:rgba(238,242,255,.12);
+      overflow:hidden;
+      border:1px solid rgba(238,242,255,.12);
+    }
+    .xpfill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
+      transition:width .35s ease;
+    }
+
+    /* ===== Name modal ===== */
+    .modal{
+      position:fixed; inset:0; display:none;
+      align-items:center; justify-content:center;
+      background:rgba(0,0,0,.55);
+      z-index:9999;
+    }
+    .modal.on{ display:flex; }
+    .modalCard{
+      width:min(520px, calc(100% - 24px));
+      background:rgba(17,26,51,.96);
+      border:1px solid rgba(238,242,255,.14);
+      border-radius:20px;
+      padding:18px;
+      box-shadow:0 20px 70px rgba(0,0,0,.6);
+    }
+    .modalCard h3{ margin:0 0 8px; }
   </style>
 </head>
 <body>
+  <!-- 氏名入力モーダル -->
+  <div class="modal" id="nameModal" aria-modal="true" role="dialog">
+    <div class="modalCard">
+      <h3>名前を入力してください</h3>
+      <div class="muted small">※端末内（localStorage）に保存します。学校PCで使う場合は共有端末に注意。</div>
+      <div class="row" style="margin-top:12px">
+        <input id="nameInput" placeholder="例：3年A組 田中" style="flex:1" />
+        <button id="nameSave" class="btnOk">開始</button>
+      </div>
+      <div class="muted small" style="margin-top:10px">
+        この画面は“利用者識別”にもなるので、スクショ転用の抑止効果があります。
+      </div>
+    </div>
+  </div>
+
 <div class="wrap">
 
   <div class="card">
@@ -87,14 +174,25 @@
       </div>
 
       <div class="row">
-        <div class="muted">出題</div>
-        <select id="pool">
-          <option value="all">全問題（ランダム）</option>
-          <option value="mistakes">ミス問題のみ（ランダム）</option>
-          <option value="sequential">全問題（順番）</option>
-        </select>
+        <div class="pill">
+          <div class="muted">名前</div>
+          <div id="playerName" style="font-weight:900">-</div>
+          <button id="changeName" class="btnGhost" style="padding:6px 10px">変更</button>
+        </div>
 
-        <button id="next" class="btn2">スキップ</button>
+        <div class="pill">
+          <div class="muted">Lv</div>
+          <div id="lv" style="font-weight:900">1</div>
+          <div class="xpbar" title="経験値">
+            <div class="xpfill" id="xpFill"></div>
+          </div>
+          <div class="muted small" id="xpText">0 / 50</div>
+        </div>
+
+        <div class="pill">
+          <div class="muted">正答率</div>
+          <div><span id="acc">-</span>（<span id="score">0/0</span>）</div>
+        </div>
       </div>
     </div>
 
@@ -108,8 +206,18 @@
       <button id="undo" class="btn2">ひとつ戻す</button>
       <button id="clear" class="btnDanger">クリア</button>
       <button id="showAns" class="btnGhost">答え表示</button>
+
       <span style="flex:1"></span>
-      <div class="muted">正答率：<span id="acc">-</span>（<span id="score">0/0</span>）</div>
+
+      <div class="row">
+        <div class="muted">出題</div>
+        <select id="pool">
+          <option value="all">全問題（ランダム）</option>
+          <option value="mistakes">ミス問題のみ（ランダム）</option>
+          <option value="sequential">全問題（順番）</option>
+        </select>
+        <button id="next" class="btn2">スキップ</button>
+      </div>
     </div>
 
     <div style="margin-top:10px">
@@ -124,11 +232,11 @@
       <div class="muted" style="margin-bottom:8px">演算子</div>
       <div id="ops" class="btnWrap"></div>
 
-      <div class="muted" style="margin:14px 0 8px">項目（全商：財務諸表分析で使う範囲に限定）</div>
+      <div class="muted" style="margin:14px 0 8px">項目（全問題共通で固定表示）</div>
       <div id="items" class="btnWrap"></div>
 
       <div class="muted small" style="margin-top:10px">
-        ※「常に全項目」なので、指標ごとに項目が絞られず“識別”が鍛えられます。
+        ※指標ごとに項目を絞らないので、知識の定着（識別）に強い設計です。
       </div>
     </div>
 
@@ -142,6 +250,7 @@
       </div>
 
       <div style="margin-top:10px" class="list" id="mistakeList"></div>
+
       <div class="muted small" style="margin-top:10px">
         「ミス問題のみ」に切り替えると、ここに入っている指標だけを回せます。
       </div>
@@ -153,79 +262,86 @@
 
 <script>
 (() => {
-  // =========================
-  // 1) 固定ボタン（全商の財務諸表分析で使う範囲に限定）
-  //    ※キャッシュフロー項目は削除
-  // =========================
-  const ALL_ITEMS = [
-    // BS系
-    "流動資産","当座資産","棚卸資産","固定資産","総資産",
-    "流動負債","固定負債","負債","純資産","自己資本","株主資本",
-    // PL系
-    "売上高","総収益","売上原価","売上総利益",
-    "販売費及び一般管理費","営業利益","経常利益","当期純利益"
-  ];
-
-  // 演算子（式組み立て用）
-  const OPS = ["＋","－","×","÷","（","）","×100"];
-
-  // =========================
-  // 2) 問題（収益性・安全性・成長性）
-  //    ※キャッシュフロー指標は削除
-  //    ※●●回転率を追加（代表例）
-  // =========================
+  // =========================================================
+  // 0)（あなたのExcel: 財務指標一覧.xlsx）から作った問題データ（計算式ありの全指標）
+  // =========================================================
+  // 記号は「×100」を1トークンとして扱う設計
   const QUESTIONS = [
-    // ---------- 収益性 ----------
-    { cat:"収益性", name:"経常収益経常利益率", tokens:["経常利益","÷","総収益","×100"], hint:"企業の全体的なもうけの割合（経常利益÷総収益）×100" },
-    { cat:"収益性", name:"総資産当期純利益率（ROA）", tokens:["当期純利益","÷","総資産","×100"], hint:"総資産でどれだけ純利益を生んだか（当期純利益÷総資産）×100" },
-    { cat:"収益性", name:"総資産経常利益率", tokens:["経常利益","÷","総資産","×100"], hint:"総資産でどれだけ経常利益を生んだか（経常利益÷総資産）×100" },
-    { cat:"収益性", name:"営業資産営業利益率", tokens:["営業利益","÷","（","総資産","－","固定資産","）","×100"], hint:"営業資産＝総資産－（投資その他等）…を授業定義に合わせて調整可" },
-    { cat:"収益性", name:"使用資産経常利益率", tokens:["経常利益","÷","総資産","×100"], hint:"（使用資産の定義は試験注意に合わせて調整可。まずは基本形で）" },
-
-    { cat:"収益性", name:"売上高売上総利益率（粗利率）", tokens:["売上総利益","÷","売上高","×100"], hint:"粗利率（売上総利益÷売上高）×100" },
-    { cat:"収益性", name:"売上高営業利益率", tokens:["営業利益","÷","売上高","×100"], hint:"本業のもうけ（営業利益÷売上高）×100" },
-    { cat:"収益性", name:"売上高純利益率（売上高当期純利益率）", tokens:["当期純利益","÷","売上高","×100"], hint:"最終利益の割合（当期純利益÷売上高）×100" },
-    { cat:"収益性", name:"売上高販売費及び一般管理費率", tokens:["販売費及び一般管理費","÷","売上高","×100"], hint:"販管費の重さ（販管費÷売上高）×100" },
-    { cat:"収益性", name:"売上高売上原価率", tokens:["売上原価","÷","売上高","×100"], hint:"原価の重さ（売上原価÷売上高）×100" },
-
-    { cat:"収益性", name:"自己資本利益率（ROE）", tokens:["当期純利益","÷","自己資本","×100"], hint:"自己資本でどれだけ純利益を生んだか（当期純利益÷自己資本）×100" },
-
-    // ★追加：●●回転率（効率性系）
-    // ※カテゴリ表示ロジックは変更しないため cat は「収益性」のままにしています（仕様変更回避）
-    { cat:"収益性", name:"総資産回転率", tokens:["売上高","÷","総資産"], hint:"資産を使ってどれだけ売上を生んだか（売上高÷総資産）" },
-    { cat:"収益性", name:"棚卸資産回転率", tokens:["売上原価","÷","棚卸資産"], hint:"在庫の回り方（売上原価÷棚卸資産）" },
-    { cat:"収益性", name:"自己資本回転率", tokens:["売上高","÷","自己資本"], hint:"自己資本を使ってどれだけ売上を生んだか（売上高÷自己資本）" },
-
-    // ---------- 安全性 ----------
-    { cat:"安全性", name:"流動比率", tokens:["流動資産","÷","流動負債","×100"], hint:"短期の支払能力（流動資産÷流動負債）×100" },
-    { cat:"安全性", name:"当座比率", tokens:["当座資産","÷","流動負債","×100"], hint:"より厳格な短期支払能力（当座資産÷流動負債）×100" },
-    { cat:"安全性", name:"自己資本比率", tokens:["自己資本","÷","総資産","×100"], hint:"財務体質（自己資本÷総資産）×100" },
-    { cat:"安全性", name:"総資産負債比率", tokens:["総資産","÷","負債","×100"], hint:"他人資本に対する資産規模（総資産÷負債）×100" },
-    { cat:"安全性", name:"純資産負債比率", tokens:["純資産","÷","負債","×100"], hint:"長期的安全性（純資産÷負債）×100" },
-    { cat:"安全性", name:"固定比率", tokens:["固定資産","÷","自己資本","×100"], hint:"固定資産を自己資本で賄えているか（固定資産÷自己資本）×100" },
-    { cat:"安全性", name:"固定長期適合率", tokens:["固定資産","÷","（","自己資本","＋","固定負債","）","×100"], hint:"固定資産を長期資金で賄えているか（固定資産÷（自己資本＋固定負債））×100" },
-
-    // ---------- 成長性 ----------
-    { cat:"成長性", name:"売上高成長率（増収率）", tokens:["（","売上高","－","売上高","）","÷","売上高","×100"], hint:"当期と前期の売上高で計算（※この式は“当期−前期”の2つの売上高を使う前提）" },
-    { cat:"成長性", name:"総資本増加率（総資産成長率）", tokens:["（","総資産","－","総資産","）","÷","総資産","×100"], hint:"当期と前期の総資産で計算（※この式は“当期−前期”の2つの総資産を使う前提）" },
-    { cat:"成長性", name:"営業利益成長率（対前年比）", tokens:["（","営業利益","－","営業利益","）","÷","営業利益","×100"], hint:"当期と前期の営業利益で計算（対前年比の考え方）" },
+    {cat:"収益性", name:"売上高総利益率", tokens:["売上総利益","÷","売上高","×100"], unit:"%"},
+    {cat:"収益性", name:"売上高営業利益率", tokens:["営業利益","÷","売上高","×100"], unit:"%"},
+    {cat:"収益性", name:"売上高経常利益率", tokens:["経常利益","÷","売上高","×100"], unit:"%"},
+    {cat:"収益性", name:"売上高当期純利益率", tokens:["当期純利益","÷","売上高","×100"], unit:"%"},
+    {cat:"収益性", name:"総資本利益率（ROA）", tokens:["当期純利益","÷","総資本","×100"], unit:"%"},
+    {cat:"収益性", name:"自己資本利益率（ROE）", tokens:["当期純利益","÷","自己資本","×100"], unit:"%"},
+    {cat:"安全性", name:"流動比率", tokens:["流動資産","÷","流動負債","×100"], unit:"%"},
+    {cat:"安全性", name:"当座比率", tokens:["当座資産","÷","流動負債","×100"], unit:"%"},
+    {cat:"安全性", name:"負債比率", tokens:["負債","÷","自己資本","×100"], unit:"%"},
+    {cat:"安全性", name:"自己資本比率", tokens:["自己資本","÷","総資本","×100"], unit:"%"},
+    {cat:"安全性", name:"固定比率", tokens:["固定資産","÷","自己資本","×100"], unit:"%"},
+    {cat:"安全性", name:"固定長期適合率", tokens:["固定資産","÷","（","固定負債","＋","自己資本","）","×100"], unit:"%"},
+    {cat:"成長性", name:"売上高成長率", tokens:["（","当期売上高","－","前期売上高","）","÷","前期売上高","×100"], unit:"%"},
+    {cat:"効率性", name:"売上原価率", tokens:["売上原価","÷","売上高","×100"], unit:"%"},
+    {cat:"効率性", name:"売上債権回転率", tokens:["売上高","÷","売上債権","（","受取手形","＋","売掛金","）"], unit:"回"},
+    {cat:"効率性", name:"商品回転率", tokens:["売上原価","÷","商品","（","棚卸資産","）"], unit:"回"},
+    {cat:"効率性", name:"総資産回転率", tokens:["売上高","÷","総資産"], unit:"回"},
+    {cat:"効率性", name:"総資本回転率", tokens:["売上高","÷","総資本"], unit:"回"},
+    {cat:"効率性", name:"固定資産回転率", tokens:["売上高","÷","固定資産"], unit:"回"},
   ];
 
-  // =========================
+  // =========================================================
+  // 1) 固定ボタン（全問題の項目を全部表示）
+  //    ※QUESTIONSのトークンから自動抽出しているので、増やしても追従します
+  // =========================================================
+  const OPS = ["＋","－","×","÷","（","）","×100"];
+  const itemSet = new Set();
+  for(const q of QUESTIONS){
+    for(const t of q.tokens){
+      if(OPS.includes(t)) continue;
+      if(t === "100") continue;
+      itemSet.add(t);
+    }
+  }
+  const ALL_ITEMS = [...itemSet].sort((a,b)=> a.localeCompare(b, "ja"));
+
+  // =========================================================
+  // 2) RPG（経験値・レベル）
+  // =========================================================
+  function xpNeedFor(level){
+    // Lv1->2:50, Lv2->3:75, Lv3->4:100 ...（単純で伸びる）
+    return 50 + (level-1)*25;
+  }
+  const RPG_KEY = "fa_rpg_v1";
+  const NAME_KEY = "fa_name_v1";
+  const MIST_KEY = "fa_mist_v1";
+
+  function loadRpg(){
+    try{
+      const raw = localStorage.getItem(RPG_KEY);
+      if(!raw) return {level:1, xp:0};
+      const obj = JSON.parse(raw);
+      if(!obj || typeof obj.level!=="number" || typeof obj.xp!=="number") return {level:1, xp:0};
+      return obj;
+    }catch{ return {level:1, xp:0}; }
+  }
+  function saveRpg(obj){ localStorage.setItem(RPG_KEY, JSON.stringify(obj)); }
+
+  // =========================================================
   // 3) 状態
-  // =========================
+  // =========================================================
   const state = {
     idx: 0,
     tokens: [],
     tries: 0,
     correct: 0,
-    mistakeCountByName: new Map(), // name -> count
-    lastAutoJudgedAt: 0
+    lastAutoJudgedAt: 0,
+    mistakes: new Map(), // name -> count
+    rpg: loadRpg(),
+    name: ""
   };
 
-  // =========================
+  // =========================================================
   // 4) DOM
-  // =========================
+  // =========================================================
   const qNameEl = document.getElementById("qName");
   const qMetaEl = document.getElementById("qMeta");
   const exprEl  = document.getElementById("expr");
@@ -233,7 +349,6 @@
   const hintEl  = document.getElementById("hint");
   const accEl   = document.getElementById("acc");
   const scoreEl = document.getElementById("score");
-  const poolEl  = document.getElementById("pool");
 
   const opsWrap   = document.getElementById("ops");
   const itemsWrap = document.getElementById("items");
@@ -244,10 +359,83 @@
   const nextBtn = document.getElementById("next");
   const showAnsBtn = document.getElementById("showAns");
   const resetMistakesBtn = document.getElementById("resetMistakes");
+  const poolEl  = document.getElementById("pool");
 
-  // =========================
-  // 5) UI生成
-  // =========================
+  // Name / RPG
+  const nameModal = document.getElementById("nameModal");
+  const nameInput = document.getElementById("nameInput");
+  const nameSave  = document.getElementById("nameSave");
+  const playerNameEl = document.getElementById("playerName");
+  const changeNameBtn = document.getElementById("changeName");
+
+  const lvEl = document.getElementById("lv");
+  const xpFillEl = document.getElementById("xpFill");
+  const xpTextEl = document.getElementById("xpText");
+
+  // =========================================================
+  // 5) ユーティリティ
+  // =========================================================
+  function setMessage(text, kind=null){
+    msgEl.textContent = text || "";
+    if(kind==="good") msgEl.style.color = "#9dffc4";
+    else if(kind==="bad") msgEl.style.color = "#ffb4b4";
+    else if(kind==="warn") msgEl.style.color = "#ffe3b3";
+    else msgEl.style.color = "#eef2ff";
+  }
+  function arraysEqual(a,b){
+    if(a.length !== b.length) return false;
+    for(let i=0;i<a.length;i++){
+      if(a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+  function pickRandomIndex(n){ return Math.floor(Math.random()*n); }
+
+  // =========================================================
+  // 6) 保存/復元（ミス）
+  // =========================================================
+  function loadMistakes(){
+    try{
+      const raw = localStorage.getItem(MIST_KEY);
+      if(!raw) return new Map();
+      const obj = JSON.parse(raw);
+      const m = new Map();
+      for(const [k,v] of Object.entries(obj)){
+        if(typeof v === "number") m.set(k, v);
+      }
+      return m;
+    }catch{ return new Map(); }
+  }
+  function saveMistakes(){
+    const obj = {};
+    for(const [k,v] of state.mistakes.entries()) obj[k]=v;
+    localStorage.setItem(MIST_KEY, JSON.stringify(obj));
+  }
+
+  // =========================================================
+  // 7) RPG表示更新
+  // =========================================================
+  function renderRpg(){
+    const need = xpNeedFor(state.rpg.level);
+    const pct = Math.max(0, Math.min(100, (state.rpg.xp/need)*100));
+    lvEl.textContent = state.rpg.level;
+    xpFillEl.style.width = pct + "%";
+    xpTextEl.textContent = `${state.rpg.xp} / ${need}`;
+  }
+  function addXp(amount){
+    state.rpg.xp += amount;
+    while(state.rpg.xp >= xpNeedFor(state.rpg.level)){
+      state.rpg.xp -= xpNeedFor(state.rpg.level);
+      state.rpg.level += 1;
+      setMessage(`レベルアップ！ Lv.${state.rpg.level}`, "good");
+    }
+    saveRpg(state.rpg);
+    renderRpg();
+  }
+
+  // =========================================================
+  // 8) ボタン生成
+  // =========================================================
   function makeButton(token){
     const b = document.createElement("button");
     b.textContent = token;
@@ -258,25 +446,9 @@
   OPS.forEach(op => opsWrap.appendChild(makeButton(op)));
   ALL_ITEMS.forEach(item => itemsWrap.appendChild(makeButton(item)));
 
-  // =========================
-  // 6) 表示系
-  // =========================
-  function catClass(cat){
-    if(cat==="安全性") return "cat safe";
-    if(cat==="成長性") return "cat grow";
-    return "cat";
-  }
-
-  function renderQuestion(){
-    const q = QUESTIONS[state.idx];
-    qNameEl.textContent = q.name;
-    qMetaEl.innerHTML = `<span class="${catClass(q.cat)}">${q.cat}</span> <span class="muted">｜自動判定ON｜ミス管理ON</span>`;
-    clearExpr(false);
-    setMessage("");
-    hintEl.textContent = "";
-    renderExpr();
-  }
-
+  // =========================================================
+  // 9) 表示
+  // =========================================================
   function renderExpr(){
     exprEl.innerHTML = "";
     if(state.tokens.length === 0){
@@ -290,69 +462,60 @@
       exprEl.appendChild(div);
     });
   }
-
-  function setMessage(text, kind=null){
-    msgEl.textContent = text || "";
-    if(kind==="good") msgEl.style.color = "#9dffc4";
-    else if(kind==="bad") msgEl.style.color = "#ffb4b4";
-    else if(kind==="warn") msgEl.style.color = "#ffe3b3";
-    else msgEl.style.color = "#eef2ff";
-  }
-
-  function updateScore(){
+  function renderScore(){
     scoreEl.textContent = `${state.correct}/${state.tries}`;
-    if(state.tries === 0) accEl.textContent = "-";
-    else accEl.textContent = Math.round((state.correct/state.tries)*100) + "%";
+    accEl.textContent = state.tries ? (Math.round((state.correct/state.tries)*100) + "%") : "-";
   }
-
   function renderMistakeList(){
-    const entries = [...state.mistakeCountByName.entries()]
-      .sort((a,b)=> b[1]-a[1]);
-
+    const entries = [...state.mistakes.entries()].sort((a,b)=> b[1]-a[1]);
     if(entries.length === 0){
       mistakeListEl.innerHTML = `<div class="muted small">まだミスはありません。</div>`;
       return;
     }
-
     mistakeListEl.innerHTML = "";
     for(const [name,count] of entries){
-      const q = QUESTIONS.find(x => x.name === name);
       const row = document.createElement("div");
       row.className = "listItem";
-
-      const left = document.createElement("div");
-      left.style.display = "flex";
-      left.style.flexDirection = "column";
-      left.style.gap = "2px";
-      left.innerHTML = `
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <span class="${catClass(q?.cat || "収益性")}">${q?.cat || "収益性"}</span>
-          <strong>${name}</strong>
+      row.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <strong>${name}</strong>
+          </div>
+          <div class="muted small">クリックでこの問題に移動</div>
         </div>
-        <div class="muted small">クリックでこの問題に移動</div>
+        <span class="badge">ミス ${count}</span>
       `;
-
-      const right = document.createElement("div");
-      right.innerHTML = `<span class="badge">ミス ${count}</span>`;
-
-      row.appendChild(left);
-      row.appendChild(right);
-
       row.addEventListener("click", () => {
-        const idx = QUESTIONS.findIndex(x => x.name === name);
+        const idx = QUESTIONS.findIndex(q => q.name === name);
         if(idx >= 0){
           state.idx = idx;
           renderQuestion();
         }
       });
-
       mistakeListEl.appendChild(row);
     }
   }
 
-  // =========================
-  // 7) 入力
-  // =========================
+  function renderQuestion(){
+    const q = QUESTIONS[state.idx];
+    qNameEl.textContent = q.name;
+
+    // “不正防止っぽさ”：氏名を画面内に常時表示（スクショ転用抑止）
+    qMetaEl.innerHTML = `<span class="muted small">分類：${q.cat} ／ 単位：${q.unit} ／ 利用者：<strong>${escapeHtml(state.name)}</strong></span>`;
+
+    state.tokens = [];
+    setMessage("");
+    hintEl.textContent = "";
+    renderExpr();
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  // =========================================================
+  // 10) 入力 & 自動判定
+  // =========================================================
   function onToken(token){
     // 連続（＋－×÷）だけ軽く抑制（学習の邪魔にならない最低限）
     const last = state.tokens[state.tokens.length-1];
@@ -366,60 +529,17 @@
     setMessage("");
     hintEl.textContent = "";
     renderExpr();
-
-    // 自動判定：長さが一致した瞬間に採点
     autoJudgeIfReady();
-  }
-
-  function clearExpr(render=true){
-    state.tokens = [];
-    if(render) renderExpr();
-  }
-
-  undoBtn.addEventListener("click", () => {
-    state.tokens.pop();
-    setMessage("");
-    hintEl.textContent = "";
-    renderExpr();
-  });
-
-  clearBtn.addEventListener("click", () => {
-    clearExpr(true);
-    setMessage("");
-    hintEl.textContent = "";
-  });
-
-  showAnsBtn.addEventListener("click", () => {
-    const q = QUESTIONS[state.idx];
-    setMessage("答え（トークン列）を表示しました。", "warn");
-    hintEl.textContent = q.tokens.join(" ");
-  });
-
-  resetMistakesBtn.addEventListener("click", () => {
-    state.mistakeCountByName.clear();
-    renderMistakeList();
-    setMessage("ミス履歴をリセットしました。", "warn");
-  });
-
-  // =========================
-  // 8) 自動判定＆次へ
-  // =========================
-  function arraysEqual(a,b){
-    if(a.length !== b.length) return false;
-    for(let i=0;i<a.length;i++){
-      if(a[i] !== b[i]) return false;
-    }
-    return true;
   }
 
   function autoJudgeIfReady(){
     const q = QUESTIONS[state.idx];
 
-    // 連打・多重判定防止
+    // 多重判定防止
     const now = Date.now();
     if(now - state.lastAutoJudgedAt < 180) return;
 
-    // “式完成”の定義：トークン数が正解トークン数に到達したら判定
+    // 式完成＝トークン数一致で判定
     if(state.tokens.length !== q.tokens.length) return;
 
     state.lastAutoJudgedAt = now;
@@ -428,31 +548,30 @@
     const ok = arraysEqual(state.tokens, q.tokens);
     if(ok){
       state.correct += 1;
-      updateScore();
+      renderScore();
+      addXp(10); // 正解でXP（ここを変えるだけで難易度調整可）
+
       setMessage("正解！→ 次へ", "good");
-      hintEl.textContent = q.hint || "";
+      hintEl.textContent = q.tokens.join(" ");
 
       // 正解なら自動で次へ
       setTimeout(() => nextQuestion(), 450);
     }else{
-      // 不正解：ミスリスト入り（回数カウント）
-      const cur = state.mistakeCountByName.get(q.name) || 0;
-      state.mistakeCountByName.set(q.name, cur + 1);
+      const cur = state.mistakes.get(q.name) || 0;
+      state.mistakes.set(q.name, cur + 1);
+      saveMistakes();
       renderMistakeList();
 
-      updateScore();
+      renderScore();
       setMessage("不正解。ミス問題リストに追加しました。", "bad");
-      hintEl.textContent = "ヒント：分子/分母の“利益の種類（営業/経常/純）”と、“資産の範囲（総資産/流動/当座/固定）”に注目。";
+      hintEl.textContent = "ヒント：分子・分母（/括弧内）の“科目の範囲”に注目。迷ったら「答え表示」もOK。";
       // 不正解はそのまま（自分でクリアして再挑戦）
     }
   }
 
-  nextBtn.addEventListener("click", () => nextQuestion());
-
-  function pickRandomIndexFrom(arr){
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
+  // =========================================================
+  // 11) 問題遷移（既存仕様踏襲）
+  // =========================================================
   function nextQuestion(){
     const mode = poolEl.value;
 
@@ -463,18 +582,18 @@
     }
 
     if(mode === "mistakes"){
-      const names = [...state.mistakeCountByName.keys()];
+      const names = [...state.mistakes.keys()];
       if(names.length === 0){
         setMessage("ミス問題がまだありません。全問題に戻してください。", "warn");
         return;
       }
-      // ミス回数が多いほど出やすく（重み付け）
+      // ミス回数が多いほど出やすい（重み付け）
       const weighted = [];
       for(const name of names){
-        const count = state.mistakeCountByName.get(name) || 1;
-        for(let i=0;i<Math.min(8, count);i++) weighted.push(name);
+        const count = state.mistakes.get(name) || 1;
+        for(let i=0;i<Math.min(10, count);i++) weighted.push(name);
       }
-      const pickName = pickRandomIndexFrom(weighted);
+      const pickName = weighted[pickRandomIndex(weighted.length)];
       const idx = QUESTIONS.findIndex(q => q.name === pickName);
       if(idx >= 0) state.idx = idx;
       renderQuestion();
@@ -482,16 +601,107 @@
     }
 
     // all（ランダム）
-    state.idx = Math.floor(Math.random() * QUESTIONS.length);
+    state.idx = pickRandomIndex(QUESTIONS.length);
     renderQuestion();
   }
 
-  // =========================
-  // 起動
-  // =========================
-  updateScore();
+  // =========================================================
+  // 12) 操作ボタン
+  // =========================================================
+  undoBtn.addEventListener("click", () => {
+    state.tokens.pop();
+    setMessage("");
+    hintEl.textContent = "";
+    renderExpr();
+  });
+
+  clearBtn.addEventListener("click", () => {
+    state.tokens = [];
+    setMessage("");
+    hintEl.textContent = "";
+    renderExpr();
+  });
+
+  showAnsBtn.addEventListener("click", () => {
+    const q = QUESTIONS[state.idx];
+    setMessage("答え（トークン列）を表示しました。", "warn");
+    hintEl.textContent = q.tokens.join(" ");
+  });
+
+  nextBtn.addEventListener("click", () => nextQuestion());
+
+  resetMistakesBtn.addEventListener("click", () => {
+    state.mistakes.clear();
+    saveMistakes();
+    renderMistakeList();
+    setMessage("ミス履歴をリセットしました。", "warn");
+  });
+
+  // =========================================================
+  // 13) 氏名
+  // =========================================================
+  function openNameModal(){
+    nameModal.classList.add("on");
+    setTimeout(()=> nameInput.focus(), 50);
+  }
+  function closeNameModal(){
+    nameModal.classList.remove("on");
+  }
+  function loadName(){
+    const n = localStorage.getItem(NAME_KEY);
+    return (n && n.trim()) ? n.trim() : "";
+  }
+  function saveName(n){
+    localStorage.setItem(NAME_KEY, n);
+  }
+  function applyName(n){
+    state.name = n;
+    playerNameEl.textContent = n;
+    // 画面に反映（メタにも出す）
+    renderQuestion();
+  }
+
+  nameSave.addEventListener("click", () => {
+    const n = nameInput.value.trim();
+    if(!n){
+      setMessage("名前を入力してください。", "warn");
+      return;
+    }
+    saveName(n);
+    applyName(n);
+    closeNameModal();
+  });
+
+  changeNameBtn.addEventListener("click", () => {
+    nameInput.value = state.name || "";
+    openNameModal();
+  });
+
+  // =========================================================
+  // 14) 起動
+  // =========================================================
+  // ミス履歴ロード
+  state.mistakes = loadMistakes();
   renderMistakeList();
+
+  // 名前
+  const initialName = loadName();
+  if(!initialName){
+    openNameModal();
+  }else{
+    applyName(initialName);
+  }
+
+  // RPG
+  renderRpg();
+  renderScore();
+
+  // 初回問題
+  state.idx = pickRandomIndex(QUESTIONS.length);
   renderQuestion();
+
+  // ついでに簡易の“コピー抑止” (本気の不正対策は不可だが、雰囲気は出る)
+  document.addEventListener("contextmenu", (e)=> e.preventDefault());
 })();
 </script>
 </body>
